@@ -1,0 +1,1062 @@
+"use client";
+
+import * as React from "react";
+import {
+  DayRoutine,
+  PeriodTiming,
+  DEFAULT_PERIOD_TIMINGS,
+  getTodaysFullDate,
+  TEACHER_DIRECTORY,
+  TeacherInfo,
+} from "../lib/routine-data";
+import {
+  Printer,
+  User,
+  GraduationCap,
+  Award,
+} from "lucide-react";
+
+interface IndividualRoutineViewProps {
+  routineData: DayRoutine[];
+  timings?: PeriodTiming[];
+}
+
+type Mode = "teacher" | "section";
+
+const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] as const;
+
+export function IndividualRoutineView({
+  routineData,
+  timings = DEFAULT_PERIOD_TIMINGS,
+}: IndividualRoutineViewProps) {
+  const [mode, setMode] = React.useState<Mode>("teacher");
+
+  // Period timing lookup helper
+  const getPeriodTime = (index: number, fallback: string) => {
+    const found = timings.find((t) => t.index === index);
+    return found ? found.time : fallback;
+  };
+
+  // ==========================================
+  // 1. EXTRACT ALL TEACHERS & COMPUTE LOADS
+  // ==========================================
+  const allTeachers = React.useMemo(() => {
+    const teacherMap: Record<string, TeacherInfo> = { ...TEACHER_DIRECTORY };
+
+    // Also scan routine data for any teacher codes not in TEACHER_DIRECTORY
+    routineData.forEach((day) => {
+      day.sections.forEach((sec) => {
+        sec.periods.forEach((p) => {
+          if (!p) return;
+          const code = p.substituteTeacherCode || p.teacherCode;
+          if (code) {
+            // Check for composite codes like SJB,IJT or FAJ/YK
+            const parts = code.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+            parts.forEach((c) => {
+              if (!teacherMap[c]) {
+                teacherMap[c] = {
+                  code: c,
+                  name: c,
+                  dept: "General",
+                  subject: p.subject || "Subject",
+                };
+              }
+            });
+          }
+        });
+      });
+    });
+
+    return teacherMap;
+  }, [routineData]);
+
+  // Compute teaching schedule for each teacher:
+  // teacherSchedules[teacherCode][day][periodIndex] = Array of { sectionId, subject, room, isSub }
+  const teacherSchedules = React.useMemo(() => {
+    const schedules: Record<
+      string,
+      Record<string, Record<number, Array<{ sectionId: string; subject: string; room?: string; isSub?: boolean }>>>
+    > = {};
+
+    Object.keys(allTeachers).forEach((code) => {
+      schedules[code] = {};
+      DAYS_OF_WEEK.forEach((d) => {
+        schedules[code][d] = {};
+      });
+    });
+
+    routineData.forEach((dayRoutine) => {
+      const day = dayRoutine.day;
+      dayRoutine.sections.forEach((sec) => {
+        if (!sec.isActive) return; // Ignore suspended sections
+        sec.periods.forEach((p, periodIdx) => {
+          if (!p) return;
+          const activeCode = p.substituteTeacherCode || p.teacherCode;
+          if (!activeCode) return;
+
+          const parts = activeCode.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+          parts.forEach((tCode) => {
+            if (!schedules[tCode]) {
+              schedules[tCode] = {};
+              DAYS_OF_WEEK.forEach((d) => {
+                schedules[tCode][d] = {};
+              });
+            }
+            if (!schedules[tCode][day]) {
+              schedules[tCode][day] = {};
+            }
+            if (!schedules[tCode][day][periodIdx]) {
+              schedules[tCode][day][periodIdx] = [];
+            }
+            schedules[tCode][day][periodIdx].push({
+              sectionId: sec.sectionId,
+              subject: p.subject,
+              room: p.room,
+              isSub: Boolean(p.substituteTeacherCode && p.substituteTeacherCode.includes(tCode)),
+            });
+          });
+        });
+      });
+    });
+
+    return schedules;
+  }, [allTeachers, routineData]);
+
+  // Teacher load counts
+  const teacherTotalLoads = React.useMemo(() => {
+    const loads: Record<string, { total: number; byDay: Record<string, number> }> = {};
+    Object.keys(allTeachers).forEach((code) => {
+      loads[code] = {
+        total: 0,
+        byDay: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
+      };
+      const sched = teacherSchedules[code];
+      if (sched) {
+        DAYS_OF_WEEK.forEach((d) => {
+          let count = 0;
+          if (sched[d]) {
+            Object.values(sched[d]).forEach((arr) => {
+              if (arr.length > 0) count++;
+            });
+          }
+          loads[code].byDay[d] = count;
+          loads[code].total += count;
+        });
+      }
+    });
+    return loads;
+  }, [allTeachers, teacherSchedules]);
+
+  // Teacher selection state
+  const sortedTeacherCodes = React.useMemo(() => {
+    return Object.keys(allTeachers).sort((a, b) => {
+      // Sort by active weekly load descending, then by code
+      const loadA = teacherTotalLoads[a]?.total || 0;
+      const loadB = teacherTotalLoads[b]?.total || 0;
+      if (loadB !== loadA) return loadB - loadA;
+      return a.localeCompare(b);
+    });
+  }, [allTeachers, teacherTotalLoads]);
+
+  const [selectedTeacherCode, setSelectedTeacherCode] = React.useState<string>(
+    sortedTeacherCodes[0] || "SM"
+  );
+
+  // ==========================================
+  // 2. EXTRACT ALL SECTIONS
+  // ==========================================
+  const allSections = React.useMemo(() => {
+    const firstDay = routineData[0];
+    if (!firstDay) return [];
+    return firstDay.sections.map((s) => ({
+      sectionId: s.sectionId,
+      className: s.className,
+      sectionName: s.sectionName,
+    }));
+  }, [routineData]);
+
+  const [selectedSectionId, setSelectedSectionId] = React.useState<string>(
+    allSections[0]?.sectionId || "6A"
+  );
+  const [selectedClassFilter, setSelectedClassFilter] = React.useState<string>("all");
+
+  const filteredSections = React.useMemo(() => {
+    if (selectedClassFilter === "all") return allSections;
+    return allSections.filter((s) => s.className === selectedClassFilter);
+  }, [allSections, selectedClassFilter]);
+
+  const uniqueClasses = React.useMemo(() => {
+    return Array.from(new Set(allSections.map((s) => s.className)));
+  }, [allSections]);
+
+  // Handle Print Routine
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const selectedTeacher = allTeachers[selectedTeacherCode] || {
+    code: selectedTeacherCode,
+    name: selectedTeacherCode,
+    dept: "General",
+    subject: "Subject",
+  };
+
+  const selectedTeacherLoad = teacherTotalLoads[selectedTeacherCode] || {
+    total: 0,
+    byDay: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
+  };
+
+  const selectedSectionInfo = allSections.find((s) => s.sectionId === selectedSectionId) || {
+    sectionId: selectedSectionId,
+    className: "Class",
+    sectionName: selectedSectionId,
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 1. TOP CONTROLS & GENERATOR HEADER (Hidden in Print) */}
+      <div className="no-print p-4 sm:p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Award className="w-5 h-5 text-primary" />
+              <span>Routine Generator & Print Studio</span>
+            </h2>
+            <p className="text-xs text-foreground-muted">
+              Generate official, formatted 5-day routines for individual teachers or specific classes & sections.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            {/* Mode Switcher */}
+            <div className="flex items-center p-1 rounded-2xl bg-background-secondary border border-border">
+              <button
+                type="button"
+                onClick={() => setMode("teacher")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  mode === "teacher"
+                    ? "bg-card text-primary shadow-xs border border-border/80"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Teacher Routine</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("section")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  mode === "section"
+                    ? "bg-card text-primary shadow-xs border border-border/80"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Class / Section Routine</span>
+              </button>
+            </div>
+
+            {/* Print Button */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
+              title="Print official routine on A4 (Ctrl+P)"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Routine</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Selector based on selected mode */}
+        {mode === "teacher" ? (
+          <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-foreground block mb-1.5">
+                Select Teacher ({sortedTeacherCodes.length} Faculty Members Available)
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={selectedTeacherCode}
+                    onChange={(e) => setSelectedTeacherCode(e.target.value)}
+                    className="w-full pl-3 pr-8 py-2 text-xs rounded-xl bg-background-secondary border border-border text-foreground font-semibold outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  >
+                    {sortedTeacherCodes.map((code) => {
+                      const t = allTeachers[code];
+                      const load = teacherTotalLoads[code]?.total || 0;
+                      return (
+                        <option key={code} value={code}>
+                          {code} — {t?.name || code} ({t?.dept || "General"}) • {load} periods/wk
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick stats badge */}
+            <div className="p-2.5 rounded-xl bg-background-secondary border border-border flex items-center justify-between text-xs">
+              <span className="text-foreground-muted">Weekly Load:</span>
+              <span className="font-bold text-primary">
+                {selectedTeacherLoad.total} periods across 5 days
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-2 border-t border-border space-y-3">
+            {/* Class filter chips */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-semibold text-foreground mr-1">Class Filter:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedClassFilter("all")}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-medium transition-colors cursor-pointer ${
+                  selectedClassFilter === "all"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                    : "bg-background-secondary hover:bg-card border border-border text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                All Classes
+              </button>
+              {uniqueClasses.map((cls) => (
+                <button
+                  key={cls}
+                  type="button"
+                  onClick={() => setSelectedClassFilter(cls)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-medium transition-colors cursor-pointer ${
+                    selectedClassFilter === cls
+                      ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                      : "bg-background-secondary hover:bg-card border border-border text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  {cls}
+                </button>
+              ))}
+            </div>
+
+            {/* Section pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {filteredSections.map((sec) => (
+                <button
+                  key={sec.sectionId}
+                  type="button"
+                  onClick={() => setSelectedSectionId(sec.sectionId)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedSectionId === sec.sectionId
+                      ? "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/20 scale-105"
+                      : "bg-background-secondary hover:bg-card border border-border text-foreground hover:text-primary"
+                  }`}
+                >
+                  {sec.sectionId}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2. AUTHENTIC OFFICIAL ROUTINE SHEET (Targeted by .routine-print-area) */}
+      <div className="routine-print-area">
+        {mode === "teacher" ? (
+          /* =========================================================================
+             OFFICIAL INDIVIDUAL TEACHER ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
+             ========================================================================= */
+          <div
+            className="routine-sheet p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
+            style={{
+              fontFamily: "'Times New Roman', Times, serif",
+              color: "#000000",
+              backgroundColor: "#ffffff",
+            }}
+          >
+            {/* Header: WEF Date in RED & Shift Name */}
+            <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
+              <span style={{ color: "#FF0000" }}>WEF: {getTodaysFullDate()}</span>
+              <span className="text-zinc-600 text-[10px] uppercase font-semibold">
+                Morning Shift • EMMS
+              </span>
+            </div>
+
+            {/* College Name & Subtitle */}
+            <div className="text-center py-2 space-y-0.5">
+              <h1
+                className="text-xl sm:text-2xl font-bold tracking-wide uppercase text-black"
+                style={{
+                  fontFamily: "'Times New Roman', Times, serif",
+                  fontWeight: 700,
+                }}
+              >
+                RAJUK UTTARA MODEL COLLEGE
+              </h1>
+              <div className="text-[12px] font-semibold tracking-wider text-black">
+                SECTOR-06, UTTARA MODEL TOWN, DHAKA-1230
+              </div>
+            </div>
+
+            {/* Yellow Banner: Teacher's Individual Routine */}
+            <div
+              className="py-1 px-3 text-center font-bold text-[13px] tracking-wide my-2 uppercase"
+              style={{
+                backgroundColor: "#FFFF00",
+                color: "#000000",
+                border: "1px solid #000000",
+                fontWeight: 700,
+              }}
+            >
+              TEACHER&apos;S INDIVIDUAL CLASS ROUTINE — 2026
+            </div>
+
+            {/* Teacher Meta Info Box */}
+            <div
+              className="p-2.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[12px] border"
+              style={{
+                borderColor: "#000000",
+                backgroundColor: "#F9FAFB",
+              }}
+            >
+              <div>
+                <span className="font-bold">Teacher Name: </span>
+                <span className="font-semibold text-black uppercase">
+                  {selectedTeacher.name} ({selectedTeacher.code})
+                </span>
+              </div>
+              <div>
+                <span className="font-bold">Department: </span>
+                <span className="font-semibold">{selectedTeacher.dept}</span>
+              </div>
+              <div>
+                <span className="font-bold">Main Subject: </span>
+                <span className="font-semibold">{selectedTeacher.subject}</span>
+              </div>
+              <div>
+                <span className="font-bold">Total Load: </span>
+                <span className="font-bold" style={{ color: "#00B050" }}>
+                  {selectedTeacherLoad.total} Periods / Week
+                </span>
+              </div>
+            </div>
+
+            {/* 5-Day Weekly Routine Grid */}
+            <div className="overflow-x-auto">
+              <table
+                className="w-full text-center border-collapse"
+                style={{
+                  border: "1px solid #000000",
+                  fontFamily: "'Times New Roman', Times, serif",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      className="p-1.5 text-center w-24 font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">Day</div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">1st</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(1, "7.30-8.10")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">2nd</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(2, "8.10-8.45")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">3rd</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(3, "8.45-9.20")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">4th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(4, "9.20-9.55")}
+                      </div>
+                    </th>
+                    {/* Official Break Column */}
+                    <th
+                      className="p-1 text-center w-16 text-[12px] font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div>Break</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        ({getPeriodTime(0, "9.55-10:25")})
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">5th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(5, "10.25-11.00")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">6th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(6, "11.00-11.35")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">7th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(7, "11.35-12.10")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1.5 text-center w-14 font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[12px]">Load</div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DAYS_OF_WEEK.map((dayName, rowIdx) => {
+                    const sched = teacherSchedules[selectedTeacherCode]?.[dayName] || {};
+                    const dayLoad = selectedTeacherLoad.byDay[dayName] || 0;
+
+                    const renderCell = (periodIdx: number) => {
+                      const classes = sched[periodIdx];
+                      if (!classes || classes.length === 0) {
+                        return (
+                          <td
+                            key={periodIdx}
+                            className="p-2 text-center text-zinc-400 text-[11px]"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FAFAFA",
+                            }}
+                          >
+                            <span className="italic font-sans text-[10px] text-zinc-400">
+                              Free
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td
+                          key={periodIdx}
+                          className="p-1.5 text-center"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: classes.some((c) => c.isSub)
+                              ? "#FEF3C7" // light amber for substitute
+                              : "#FFFFFF",
+                          }}
+                        >
+                          {classes.map((cls, cIdx) => (
+                            <div key={cIdx} className="space-y-0.5">
+                              <div className="font-bold text-[13px] text-black leading-tight">
+                                {cls.sectionId}
+                              </div>
+                              <div className="text-[11px] font-semibold text-zinc-800 leading-tight">
+                                {cls.subject}
+                              </div>
+                              {cls.room && (
+                                <div className="text-[9px] text-zinc-500 font-sans">
+                                  R: {cls.room}
+                                </div>
+                              )}
+                              {cls.isSub && (
+                                <span className="inline-block px-1 text-[8px] bg-amber-500 text-white font-bold rounded">
+                                  SUB
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </td>
+                      );
+                    };
+
+                    return (
+                      <tr key={dayName} className="h-14">
+                        {/* Day Name */}
+                        <td
+                          className="p-2 text-center font-bold text-[12px]"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#F3F4F6",
+                          }}
+                        >
+                          {dayName}
+                        </td>
+
+                        {/* Periods 1 to 4 */}
+                        {renderCell(0)}
+                        {renderCell(1)}
+                        {renderCell(2)}
+                        {renderCell(3)}
+
+                        {/* Break Column */}
+                        {rowIdx === 0 && (
+                          <td
+                            rowSpan={DAYS_OF_WEEK.length}
+                            className="text-center font-bold text-[12px] tracking-wider align-middle"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FFFFCC",
+                              writingMode: "vertical-rl",
+                              transform: "rotate(180deg)",
+                            }}
+                          >
+                            BREAK / TIFFIN
+                          </td>
+                        )}
+
+                        {/* Periods 5 to 7 */}
+                        {renderCell(4)}
+                        {renderCell(5)}
+                        {renderCell(6)}
+
+                        {/* Daily Load */}
+                        <td
+                          className="p-2 text-center font-bold text-[12px]"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#F3F4F6",
+                          }}
+                        >
+                          {dayLoad}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Official Signatures Block (Replica of RUMC PDF Format) */}
+            <div className="mt-12 pt-6 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Teacher&apos;s Signature</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Convener, Routine</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>In-Charge (EMMS)</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Principal, RUMC</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* =========================================================================
+             OFFICIAL CLASS & SECTION ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
+             ========================================================================= */
+          <div
+            className="routine-sheet p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
+            style={{
+              fontFamily: "'Times New Roman', Times, serif",
+              color: "#000000",
+              backgroundColor: "#ffffff",
+            }}
+          >
+            {/* Header: WEF Date in RED & Shift Name */}
+            <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
+              <span style={{ color: "#FF0000" }}>WEF: {getTodaysFullDate()}</span>
+              <span className="text-zinc-600 text-[10px] uppercase font-semibold">
+                Morning Shift • EMMS
+              </span>
+            </div>
+
+            {/* College Name & Subtitle */}
+            <div className="text-center py-2 space-y-0.5">
+              <h1
+                className="text-xl sm:text-2xl font-bold tracking-wide uppercase text-black"
+                style={{
+                  fontFamily: "'Times New Roman', Times, serif",
+                  fontWeight: 700,
+                }}
+              >
+                RAJUK UTTARA MODEL COLLEGE
+              </h1>
+              <div className="text-[12px] font-semibold tracking-wider text-black">
+                SECTOR-06, UTTARA MODEL TOWN, DHAKA-1230
+              </div>
+            </div>
+
+            {/* Yellow Banner: Class Routine */}
+            <div
+              className="py-1 px-3 text-center font-bold text-[13px] tracking-wide my-2 uppercase"
+              style={{
+                backgroundColor: "#FFFF00",
+                color: "#000000",
+                border: "1px solid #000000",
+                fontWeight: 700,
+              }}
+            >
+              CLASS &amp; SECTION ROUTINE — 2026
+            </div>
+
+            {/* Class & Section Meta Info Box */}
+            <div
+              className="p-2.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[12px] border"
+              style={{
+                borderColor: "#000000",
+                backgroundColor: "#F9FAFB",
+              }}
+            >
+              <div>
+                <span className="font-bold">Class: </span>
+                <span className="font-semibold text-black uppercase">
+                  {selectedSectionInfo.className}
+                </span>
+              </div>
+              <div>
+                <span className="font-bold">Section: </span>
+                <span className="font-bold text-black uppercase">
+                  {selectedSectionInfo.sectionId}
+                </span>
+              </div>
+              <div>
+                <span className="font-bold">Medium / Shift: </span>
+                <span className="font-semibold">English Medium • Morning Shift</span>
+              </div>
+              <div>
+                <span className="font-bold">Academic Year: </span>
+                <span className="font-semibold">2026</span>
+              </div>
+            </div>
+
+            {/* 5-Day Weekly Routine Grid for this Section */}
+            <div className="overflow-x-auto">
+              <table
+                className="w-full text-center border-collapse"
+                style={{
+                  border: "1px solid #000000",
+                  fontFamily: "'Times New Roman', Times, serif",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      className="p-1.5 text-center w-24 font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">Day</div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">1st</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(1, "7.30-8.10")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">2nd</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(2, "8.10-8.45")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">3rd</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(3, "8.45-9.20")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">4th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(4, "9.20-9.55")}
+                      </div>
+                    </th>
+                    {/* Official Break Column */}
+                    <th
+                      className="p-1 text-center w-16 text-[12px] font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div>Break</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        ({getPeriodTime(0, "9.55-10:25")})
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">5th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(5, "10.25-11.00")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">6th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(6, "11.00-11.35")}
+                      </div>
+                    </th>
+                    <th
+                      className="p-1 text-center font-bold"
+                      style={{
+                        border: "1px solid #000000",
+                        backgroundColor: "#8DB3E2",
+                        color: "#000000",
+                      }}
+                    >
+                      <div className="text-[13px]">7th</div>
+                      <div className="text-[10px] font-normal leading-none mt-0.5">
+                        {getPeriodTime(7, "11.35-12.10")}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {DAYS_OF_WEEK.map((dayName, rowIdx) => {
+                    const dayRoutine = routineData.find((d) => d.day === dayName);
+                    const secRoutine = dayRoutine?.sections.find(
+                      (s) => s.sectionId === selectedSectionId
+                    );
+
+                    const isClosed = secRoutine && !secRoutine.isActive;
+
+                    const renderCell = (periodIdx: number) => {
+                      if (isClosed) {
+                        return (
+                          <td
+                            key={periodIdx}
+                            className="p-2 text-center text-[10px] text-rose-700 italic bg-rose-50"
+                            style={{ border: "1px solid #000000" }}
+                          >
+                            Suspended
+                          </td>
+                        );
+                      }
+
+                      const cell = secRoutine?.periods[periodIdx];
+                      if (!cell) {
+                        return (
+                          <td
+                            key={periodIdx}
+                            className="p-2 text-center text-zinc-300 text-[11px]"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FAFAFA",
+                            }}
+                          >
+                            —
+                          </td>
+                        );
+                      }
+
+                      const displayTeacher = cell.substituteTeacherCode || cell.teacherCode;
+
+                      return (
+                        <td
+                          key={periodIdx}
+                          className="p-1.5 text-center"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: cell.substituteTeacherCode ? "#FEF3C7" : "#FFFFFF",
+                          }}
+                        >
+                          <div className="font-bold text-[13px] text-black leading-tight">
+                            {cell.subject}
+                          </div>
+                          <div className="text-[11px] font-bold text-blue-900 mt-0.5 leading-tight">
+                            {displayTeacher}
+                          </div>
+                          {cell.substituteTeacherCode && (
+                            <div className="text-[8px] text-zinc-500 line-through">
+                              {cell.teacherCode}
+                            </div>
+                          )}
+                          {cell.room && (
+                            <div className="text-[9px] text-zinc-500 font-sans">
+                              R: {cell.room}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    };
+
+                    return (
+                      <tr key={dayName} className="h-14">
+                        {/* Day Name */}
+                        <td
+                          className="p-2 text-center font-bold text-[12px]"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#F3F4F6",
+                          }}
+                        >
+                          {dayName}
+                        </td>
+
+                        {/* Periods 1 to 4 */}
+                        {renderCell(0)}
+                        {renderCell(1)}
+                        {renderCell(2)}
+                        {renderCell(3)}
+
+                        {/* Break Column */}
+                        {rowIdx === 0 && (
+                          <td
+                            rowSpan={DAYS_OF_WEEK.length}
+                            className="text-center font-bold text-[12px] tracking-wider align-middle"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FFFFCC",
+                              writingMode: "vertical-rl",
+                              transform: "rotate(180deg)",
+                            }}
+                          >
+                            BREAK / TIFFIN
+                          </td>
+                        )}
+
+                        {/* Periods 5 to 7 */}
+                        {renderCell(4)}
+                        {renderCell(5)}
+                        {renderCell(6)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Signatures Block */}
+            <div className="mt-12 pt-6 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Class Teacher</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Convener, Routine</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>In-Charge (EMMS)</div>
+              </div>
+              <div className="space-y-1">
+                <div className="w-32 mx-auto border-b border-black mb-1"></div>
+                <div>Principal, RUMC</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DayRoutine } from "../lib/routine-data";
+import { DayRoutine, sortDaysCanonical } from "../lib/routine-data";
 import {
   CheckCircle2,
   XCircle,
@@ -79,7 +79,7 @@ export function ClassStatusManager({
               onChange={(e) => setSelectedDay(e.target.value)}
               className="px-3 py-1.5 rounded-xl bg-background-secondary border border-border text-foreground font-semibold outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
-              {routineData.map((d) => (
+              {sortDaysCanonical(routineData).map((d) => (
                 <option key={d.day} value={d.day}>
                   {d.day}
                 </option>

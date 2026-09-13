@@ -5,6 +5,9 @@ import {
   DEFAULT_ROUTINE_DATA,
   PeriodTiming,
   DEFAULT_PERIOD_TIMINGS,
+  sortDaysCanonical,
+  TeacherInfo,
+  TEACHER_DIRECTORY,
 } from "./routine-data";
 import {
   fetchRoutineFromSupabase,
@@ -16,9 +19,11 @@ import {
 
 const STORAGE_KEY = "rumc_emms_routine_data_v1";
 const TIMINGS_STORAGE_KEY = "rumc_emms_timings_v1";
+const TEACHERS_STORAGE_KEY = "rumc_emms_teachers_v1";
 
 let memoryRoutine: DayRoutine[] = DEFAULT_ROUTINE_DATA;
 let memoryTimings: PeriodTiming[] = DEFAULT_PERIOD_TIMINGS;
+let memoryTeachers: Record<string, TeacherInfo> = TEACHER_DIRECTORY;
 let hasLoadedFromStorage = false;
 let cloudSyncStatus: "synced" | "syncing" | "offline" = "synced";
 
@@ -38,7 +43,7 @@ function getSnapshot(): DayRoutine[] {
       if (item) {
         const parsed = JSON.parse(item);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          memoryRoutine = parsed;
+          memoryRoutine = sortDaysCanonical(parsed);
         }
       }
       const timingsItem = window.localStorage.getItem(TIMINGS_STORAGE_KEY);
@@ -46,6 +51,13 @@ function getSnapshot(): DayRoutine[] {
         const parsedTimings = JSON.parse(timingsItem);
         if (Array.isArray(parsedTimings) && parsedTimings.length > 0) {
           memoryTimings = parsedTimings;
+        }
+      }
+      const teachersItem = window.localStorage.getItem(TEACHERS_STORAGE_KEY);
+      if (teachersItem) {
+        const parsedTeachers = JSON.parse(teachersItem);
+        if (parsedTeachers && typeof parsedTeachers === "object") {
+          memoryTeachers = parsedTeachers;
         }
       }
     } catch (e) {
@@ -58,9 +70,16 @@ function getSnapshot(): DayRoutine[] {
 
 function getTimingsSnapshot(): PeriodTiming[] {
   if (typeof window !== "undefined" && !hasLoadedFromStorage) {
-    getSnapshot(); // loads both
+    getSnapshot(); // loads all
   }
   return memoryTimings;
+}
+
+function getTeachersSnapshot(): Record<string, TeacherInfo> {
+  if (typeof window !== "undefined" && !hasLoadedFromStorage) {
+    getSnapshot(); // loads all
+  }
+  return memoryTeachers;
 }
 
 function getServerSnapshot(): DayRoutine[] {
@@ -71,15 +90,32 @@ function getServerTimingsSnapshot(): PeriodTiming[] {
   return DEFAULT_PERIOD_TIMINGS;
 }
 
+function getServerTeachersSnapshot(): Record<string, TeacherInfo> {
+  return TEACHER_DIRECTORY;
+}
+
 function getCloudSnapshot(): "synced" | "syncing" | "offline" {
   return cloudSyncStatus;
 }
 
-function updateState(next: DayRoutine[], persistToCloud = true) {
-  memoryRoutine = next;
+function updateTeachersState(next: Record<string, TeacherInfo>) {
+  memoryTeachers = next;
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(TEACHERS_STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.error("Failed to save teachers to localStorage:", e);
+    }
+  }
+  listeners.forEach((l) => l());
+}
+
+function updateState(next: DayRoutine[], persistToCloud = true) {
+  const sorted = sortDaysCanonical(next);
+  memoryRoutine = sorted;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
     } catch (e) {
       console.error("Failed to save routine to localStorage:", e);
     }
@@ -91,7 +127,7 @@ function updateState(next: DayRoutine[], persistToCloud = true) {
     cloudSyncStatus = "syncing";
     listeners.forEach((l) => l());
 
-    saveRoutineToSupabase(next)
+    saveRoutineToSupabase(sorted)
       .then((ok) => {
         cloudSyncStatus = ok ? "synced" : "offline";
         listeners.forEach((l) => l());
@@ -143,6 +179,12 @@ export function useRoutineStore() {
     subscribe,
     getCloudSnapshot,
     () => "synced"
+  );
+
+  const teachers = React.useSyncExternalStore<Record<string, TeacherInfo>>(
+    subscribe,
+    getTeachersSnapshot,
+    getServerTeachersSnapshot
   );
 
   // Sync with Supabase on initial mount
@@ -224,6 +266,184 @@ export function useRoutineStore() {
     },
     []
   );
+
+  const addSection = React.useCallback(
+    (newSec: { sectionId: string; className: string; sectionName?: string }): boolean => {
+      const id = newSec.sectionId.trim();
+      if (!id) return false;
+      const exists = memoryRoutine.some((day) =>
+        day.sections.some((s) => s.sectionId.toLowerCase() === id.toLowerCase())
+      );
+      if (exists) return false;
+
+      const next = memoryRoutine.map((day) => ({
+        ...day,
+        sections: [
+          ...day.sections,
+          {
+            sectionId: id,
+            className: newSec.className.trim() || `Class ${id.replace(/\D/g, "") || id}`,
+            sectionName: (newSec.sectionName || id.replace(/^\d+/, "") || id).trim(),
+            isActive: true,
+            periods: [null, null, null, null, null, null, null],
+          },
+        ],
+      }));
+      updateState(next);
+      return true;
+    },
+    []
+  );
+
+  const removeSection = React.useCallback((sectionId: string) => {
+    const next = memoryRoutine.map((day) => ({
+      ...day,
+      sections: day.sections.filter((s) => s.sectionId !== sectionId),
+    }));
+    updateState(next);
+  }, []);
+
+  const editSection = React.useCallback(
+    (
+      oldSectionId: string,
+      updated: { sectionId: string; className: string; sectionName?: string }
+    ): boolean => {
+      const newId = updated.sectionId.trim();
+      if (!newId) return false;
+      if (
+        newId.toLowerCase() !== oldSectionId.toLowerCase() &&
+        memoryRoutine.some((day) =>
+          day.sections.some((s) => s.sectionId.toLowerCase() === newId.toLowerCase())
+        )
+      ) {
+        return false;
+      }
+
+      const next = memoryRoutine.map((day) => ({
+        ...day,
+        sections: day.sections.map((sec) => {
+          if (sec.sectionId !== oldSectionId) return sec;
+          return {
+            ...sec,
+            sectionId: newId,
+            className: updated.className.trim() || sec.className,
+            sectionName: updated.sectionName?.trim() || sec.sectionName,
+          };
+        }),
+      }));
+      updateState(next);
+      return true;
+    },
+    []
+  );
+
+  const reorderSections = React.useCallback((orderedSectionIds: string[]) => {
+    const orderMap = new Map(orderedSectionIds.map((id, index) => [id, index]));
+    const next = memoryRoutine.map((day) => {
+      const sortedSections = [...day.sections].sort((a, b) => {
+        const orderA = orderMap.get(a.sectionId) ?? 999;
+        const orderB = orderMap.get(b.sectionId) ?? 999;
+        return orderA - orderB;
+      });
+      return { ...day, sections: sortedSections };
+    });
+    updateState(next);
+  }, []);
+
+  const addTeacher = React.useCallback(
+    (newTeacher: { code: string; dept: string; subject: string }): boolean => {
+      const code = newTeacher.code.trim().toUpperCase();
+      if (!code) return false;
+      const updated = {
+        ...memoryTeachers,
+        [code]: {
+          code,
+          name: code,
+          dept: newTeacher.dept.trim() || "General",
+          subject: newTeacher.subject.trim() || "General",
+        },
+      };
+      updateTeachersState(updated);
+      return true;
+    },
+    []
+  );
+
+  const removeTeacher = React.useCallback((code: string) => {
+    const updated = { ...memoryTeachers };
+    delete updated[code];
+    updateTeachersState(updated);
+  }, []);
+
+  const editTeacher = React.useCallback(
+    (
+      oldCode: string,
+      updated: { code: string; dept: string; subject: string }
+    ): boolean => {
+      const newCode = updated.code.trim().toUpperCase();
+      if (!newCode) return false;
+
+      const nextTeachers = { ...memoryTeachers };
+      if (newCode !== oldCode) {
+        delete nextTeachers[oldCode];
+      }
+      nextTeachers[newCode] = {
+        code: newCode,
+        name: newCode,
+        dept: updated.dept.trim() || "General",
+        subject: updated.subject.trim() || "General",
+      };
+      updateTeachersState(nextTeachers);
+
+      if (newCode !== oldCode) {
+        const nextRoutine = memoryRoutine.map((day) => ({
+          ...day,
+          sections: day.sections.map((sec) => ({
+            ...sec,
+            periods: sec.periods.map((cell) => {
+              if (!cell) return cell;
+              let changed = false;
+              let tCode = cell.teacherCode;
+              let subCode = cell.substituteTeacherCode;
+
+              if (tCode === oldCode) {
+                tCode = newCode;
+                changed = true;
+              }
+              if (subCode === oldCode) {
+                subCode = newCode;
+                changed = true;
+              }
+
+              if (changed) {
+                return {
+                  ...cell,
+                  teacherCode: tCode,
+                  substituteTeacherCode: subCode,
+                };
+              }
+              return cell;
+            }),
+          })),
+        }));
+        updateState(nextRoutine);
+      }
+
+      return true;
+    },
+    []
+  );
+
+  const resetTeachers = React.useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(TEACHERS_STORAGE_KEY);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    updateTeachersState(TEACHER_DIRECTORY);
+  }, []);
 
   const applySubstitution = React.useCallback(
     (
@@ -377,6 +597,10 @@ export function useRoutineStore() {
     cloudStatus,
     updateCell,
     toggleSectionStatus,
+    addSection,
+    removeSection,
+    editSection,
+    reorderSections,
     applySubstitution,
     revertSubstitution,
     updateTimings,
@@ -385,5 +609,10 @@ export function useRoutineStore() {
     resetAll,
     exportJSON,
     importJSON,
+    teachers,
+    addTeacher,
+    removeTeacher,
+    editTeacher,
+    resetTeachers,
   };
 }

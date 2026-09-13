@@ -19,6 +19,7 @@ import {
 interface IndividualRoutineViewProps {
   routineData: DayRoutine[];
   timings?: PeriodTiming[];
+  teachers?: Record<string, TeacherInfo>;
 }
 
 type Mode = "teacher" | "section";
@@ -28,6 +29,7 @@ const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] as
 export function IndividualRoutineView({
   routineData,
   timings = DEFAULT_PERIOD_TIMINGS,
+  teachers,
 }: IndividualRoutineViewProps) {
   const [mode, setMode] = React.useState<Mode>("teacher");
 
@@ -41,7 +43,7 @@ export function IndividualRoutineView({
   // 1. EXTRACT ALL TEACHERS & COMPUTE LOADS
   // ==========================================
   const allTeachers = React.useMemo(() => {
-    const teacherMap: Record<string, TeacherInfo> = { ...TEACHER_DIRECTORY };
+    const teacherMap: Record<string, TeacherInfo> = { ...(teachers || TEACHER_DIRECTORY) };
 
     // Also scan routine data for any teacher codes not in TEACHER_DIRECTORY
     routineData.forEach((day) => {
@@ -68,7 +70,7 @@ export function IndividualRoutineView({
     });
 
     return teacherMap;
-  }, [routineData]);
+  }, [routineData, teachers]);
 
   // Compute teaching schedule for each teacher:
   // teacherSchedules[teacherCode][day][periodIndex] = Array of { sectionId, subject, room, isSub }
@@ -288,7 +290,7 @@ export function IndividualRoutineView({
                       const load = teacherTotalLoads[code]?.total || 0;
                       return (
                         <option key={code} value={code}>
-                          {code} — {t?.name || code} ({t?.dept || "General"}) • {load} periods/wk
+                          {code} ({t?.dept || "General"}) • {load} periods/wk
                         </option>
                       );
                     })}
@@ -418,9 +420,9 @@ export function IndividualRoutineView({
               }}
             >
               <div>
-                <span className="font-bold">Teacher Name: </span>
-                <span className="font-semibold text-black uppercase">
-                  {selectedTeacher.name} ({selectedTeacher.code})
+                <span className="font-bold">Teacher Code: </span>
+                <span className="font-bold text-black uppercase">
+                  {selectedTeacher.code}
                 </span>
               </div>
               <div>

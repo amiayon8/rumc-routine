@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { DayRoutine } from "../lib/routine-data";
+import { DayRoutine, TeacherInfo } from "../lib/routine-data";
 import { calculateTeacherLoads, TeacherLoadSummary } from "../lib/substitution-engine";
+import { TeacherManagerModal } from "./teacher-manager-modal";
 import {
   BarChart3,
   Search,
@@ -11,16 +12,33 @@ import {
   ChevronRight,
   Clock,
   Briefcase,
+  Users,
 } from "lucide-react";
 
 interface ClassLoadViewProps {
   routineData: DayRoutine[];
+  teachers?: Record<string, TeacherInfo>;
+  onAddTeacher?: (teacher: { code: string; dept: string; subject: string }) => boolean;
+  onRemoveTeacher?: (code: string) => void;
+  onEditTeacher?: (
+    oldCode: string,
+    updated: { code: string; dept: string; subject: string }
+  ) => boolean;
+  onResetTeachers?: () => void;
 }
 
-export function ClassLoadView({ routineData }: ClassLoadViewProps) {
+export function ClassLoadView({
+  routineData,
+  teachers,
+  onAddTeacher,
+  onRemoveTeacher,
+  onEditTeacher,
+  onResetTeachers,
+}: ClassLoadViewProps) {
   const [searchTerm, setSearchTerm] = React.useState<string>("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [selectedTeacher, setSelectedTeacher] = React.useState<TeacherLoadSummary | null>(null);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = React.useState<boolean>(false);
 
   const teacherLoads = React.useMemo(() => {
     return calculateTeacherLoads(routineData);
@@ -37,7 +55,6 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
         const q = searchTerm.toLowerCase();
         return (
           item.teacher.code.toLowerCase().includes(q) ||
-          item.teacher.name.toLowerCase().includes(q) ||
           item.teacher.dept.toLowerCase().includes(q) ||
           item.teacher.subject.toLowerCase().includes(q)
         );
@@ -144,6 +161,17 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
             );
           })}
         </div>
+
+        {teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
+          <button
+            type="button"
+            onClick={() => setIsTeacherModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs shrink-0 cursor-pointer"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Manage Faculty</span>
+          </button>
+        )}
       </div>
 
       {/* Teacher Load Table Matrix */}
@@ -152,8 +180,7 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-background-secondary/80 border-b border-border text-foreground-muted font-bold">
-                <th className="py-3 px-4">Code</th>
-                <th className="py-3 px-4">Teacher Name</th>
+                <th className="py-3 px-4">Faculty Code</th>
                 <th className="py-3 px-4">Department / Subject</th>
                 <th className="py-3 px-3 text-center">Sun</th>
                 <th className="py-3 px-3 text-center">Mon</th>
@@ -177,11 +204,8 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
                       {item.teacher.code}
                     </span>
                   </td>
-                  <td className="py-3 px-4 font-semibold text-foreground">
-                    {item.teacher.name}
-                  </td>
                   <td className="py-3 px-4 text-foreground-muted">
-                    <span>{item.teacher.dept}</span>
+                    <span className="font-medium text-foreground">{item.teacher.dept}</span>
                     <span className="text-foreground-subtle ml-1">({item.teacher.subject})</span>
                   </td>
                   <td className="py-3 px-3 text-center font-mono font-medium">
@@ -228,8 +252,8 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                  <span>{selectedTeacher.teacher.name}</span>
-                  <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-secondary border border-border">
+                  <span>Faculty Code:</span>
+                  <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 font-bold">
                     {selectedTeacher.teacher.code}
                   </span>
                 </h3>
@@ -302,6 +326,19 @@ export function ClassLoadView({ routineData }: ClassLoadViewProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Teacher & Faculty Manager Modal */}
+      {isTeacherModalOpen && teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
+        <TeacherManagerModal
+          isOpen={isTeacherModalOpen}
+          onClose={() => setIsTeacherModalOpen(false)}
+          teachers={teachers}
+          onAddTeacher={onAddTeacher}
+          onRemoveTeacher={onRemoveTeacher}
+          onEditTeacher={onEditTeacher}
+          onResetTeachers={onResetTeachers}
+        />
       )}
     </div>
   );

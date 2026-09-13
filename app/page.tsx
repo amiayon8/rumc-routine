@@ -21,6 +21,10 @@ export default function Home() {
     cloudStatus,
     updateCell,
     toggleSectionStatus,
+    addSection,
+    removeSection,
+    editSection,
+    reorderSections,
     applySubstitution,
     revertSubstitution,
     updateTimings,
@@ -28,6 +32,11 @@ export default function Home() {
     resetAll,
     exportJSON,
     importJSON,
+    teachers,
+    addTeacher,
+    removeTeacher,
+    editTeacher,
+    resetTeachers,
   } = useRoutineStore();
 
   const activeDayRoutine = routineData.find((d) => d.day === currentDay) || routineData[0];
@@ -107,6 +116,15 @@ export default function Home() {
             onImportJSON={importJSON}
             onOpenSubstitution={() => setActiveTab("substitution")}
             onOpenClassStatus={() => setActiveTab("class-status")}
+            onAddSection={addSection}
+            onRemoveSection={removeSection}
+            onEditSection={editSection}
+            onReorderSections={reorderSections}
+            teachers={teachers}
+            onAddTeacher={addTeacher}
+            onRemoveTeacher={removeTeacher}
+            onEditTeacher={editTeacher}
+            onResetTeachers={resetTeachers}
           />
         )}
 
@@ -115,6 +133,7 @@ export default function Home() {
           <IndividualRoutineView
             routineData={routineData}
             timings={timings}
+            teachers={teachers}
           />
         )}
 
@@ -123,6 +142,7 @@ export default function Home() {
           <SubstitutionManager
             routineData={routineData}
             currentDay={currentDay}
+            teachers={teachers}
             onApplySubstitution={applySubstitution}
             onRevertSubstitution={revertSubstitution}
           />
@@ -130,7 +150,14 @@ export default function Home() {
 
         {/* View 3: Faculty Load Matrix */}
         {activeTab === "class-load" && (
-          <ClassLoadView routineData={routineData} />
+          <ClassLoadView
+            routineData={routineData}
+            teachers={teachers}
+            onAddTeacher={addTeacher}
+            onRemoveTeacher={removeTeacher}
+            onEditTeacher={editTeacher}
+            onResetTeachers={resetTeachers}
+          />
         )}
 
         {/* View 4: Classes Active & Closed Manager */}
@@ -155,7 +182,7 @@ export default function Home() {
             <span>Daywise Class Routine 2026 (EMMS)</span>
           </div>
           <div className="flex items-center gap-2 text-foreground-subtle">
-            <span>Powered by Supabase Cloud Storage</span>
+            <span>Powered by <a href="https://www.thenicedev.xyz" className="text-black dark:text-white">The Nice Developer</a></span>
           </div>
         </div>
       </footer>

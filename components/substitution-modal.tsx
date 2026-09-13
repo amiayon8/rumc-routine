@@ -5,6 +5,7 @@ import {
   DayRoutine,
   TEACHER_DIRECTORY,
   TeacherInfo,
+  sortDaysCanonical,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
@@ -27,6 +28,7 @@ import {
 interface SubstitutionManagerProps {
   routineData: DayRoutine[];
   currentDay: string;
+  teachers?: Record<string, TeacherInfo>;
   onApplySubstitution: (
     dayName: string,
     periodIndex: number,
@@ -41,11 +43,13 @@ interface SubstitutionManagerProps {
 export function SubstitutionManager({
   routineData,
   currentDay,
+  teachers,
   onApplySubstitution,
   onRevertSubstitution,
 }: SubstitutionManagerProps) {
   const [selectedDay, setSelectedDay] = React.useState<string>(currentDay);
   const [absentTeacherCodes, setAbsentTeacherCodes] = React.useState<string[]>(["AA"]);
+  const [teacherAbsencePeriods, setTeacherAbsencePeriods] = React.useState<Record<string, number[]>>({});
   const [allowedReplacementCodes, setAllowedReplacementCodes] = React.useState<string[]>([]);
   const [useCustomPool, setUseCustomPool] = React.useState<boolean>(false);
   const [maxDailyLoad, setMaxDailyLoad] = React.useState<number>(5);
@@ -55,9 +59,11 @@ export function SubstitutionManager({
   // Local manual overrides for any requirement: requirementId -> selected candidate code
   const [manualAssignments, setManualAssignments] = React.useState<Record<string, string>>({});
 
+  const teacherDir = teachers || TEACHER_DIRECTORY;
+
   const allTeachersList: TeacherInfo[] = React.useMemo(() => {
-    return Object.values(TEACHER_DIRECTORY).sort((a, b) => a.name.localeCompare(b.name));
-  }, []);
+    return Object.values(teacherDir).sort((a, b) => a.code.localeCompare(b.code));
+  }, [teacherDir]);
 
   const departmentsList = React.useMemo(() => {
     const depts = new Set<string>();
@@ -65,11 +71,53 @@ export function SubstitutionManager({
     return ["All", ...Array.from(depts).sort()];
   }, [allTeachersList]);
 
+  const isTeacherFullDay = (code: string) => {
+    const periods = teacherAbsencePeriods[code];
+    return !periods || periods.length === 7;
+  };
+
+  const setTeacherFullDayAbsent = (code: string) => {
+    setTeacherAbsencePeriods((prev) => {
+      const next = { ...prev };
+      delete next[code];
+      return next;
+    });
+  };
+
+  const toggleTeacherPeriodAbsence = (code: string, pIdx: number) => {
+    setTeacherAbsencePeriods((prev) => {
+      const current = prev[code] ?? [0, 1, 2, 3, 4, 5, 6];
+      const exists = current.includes(pIdx);
+      let updated: number[];
+      if (exists) {
+        updated = current.filter((p) => p !== pIdx);
+      } else {
+        updated = [...current, pIdx].sort((a, b) => a - b);
+      }
+      if (updated.length === 7) {
+        const next = { ...prev };
+        delete next[code];
+        return next;
+      }
+      return { ...prev, [code]: updated };
+    });
+  };
+
   // Toggle absent teacher
   const handleToggleAbsent = (code: string) => {
-    setAbsentTeacherCodes((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    );
+    setAbsentTeacherCodes((prev) => {
+      const exists = prev.includes(code);
+      if (exists) {
+        setTeacherAbsencePeriods((pMap) => {
+          const next = { ...pMap };
+          delete next[code];
+          return next;
+        });
+        return prev.filter((c) => c !== code);
+      } else {
+        return [...prev, code];
+      }
+    });
   };
 
   // Toggle replacement candidate in custom pool
@@ -85,17 +133,21 @@ export function SubstitutionManager({
     return getMultiTeacherSubstitutionPlan({
       dayName: selectedDay,
       absentTeacherCodes,
+      teacherAbsencePeriods,
       allowedReplacementCodes: useCustomPool ? allowedReplacementCodes : undefined,
       routineData,
       maxDailyLoad,
+      teachersDirectory: teacherDir,
     });
   }, [
     selectedDay,
     absentTeacherCodes,
+    teacherAbsencePeriods,
     allowedReplacementCodes,
     useCustomPool,
     routineData,
     maxDailyLoad,
+    teacherDir,
   ]);
 
   // Current active substitutions for the selected day across all sections
@@ -142,7 +194,7 @@ export function SubstitutionManager({
           req.sectionId,
           req.originalTeacher.code,
           assignedCode,
-          "Absence Replacement"
+          undefined
         );
       }
     });
@@ -158,9 +210,9 @@ export function SubstitutionManager({
   const filteredAbsentTeachers = allTeachersList.filter((t) => {
     const matchesSearch =
       searchQuery.trim() === "" ||
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.dept.toLowerCase().includes(searchQuery.toLowerCase());
+      t.dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.subject.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesDept = selectedDeptFilter === "All" || t.dept === selectedDeptFilter;
     return matchesSearch && matchesDept;
@@ -213,7 +265,7 @@ export function SubstitutionManager({
               }}
               className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
             >
-              {routineData.map((d) => (
+              {sortDaysCanonical(routineData).map((d) => (
                 <option key={d.day} value={d.day}>
                   {d.day}
                 </option>
@@ -305,7 +357,10 @@ export function SubstitutionManager({
               {absentTeacherCodes.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setAbsentTeacherCodes([])}
+                  onClick={() => {
+                    setAbsentTeacherCodes([]);
+                    setTeacherAbsencePeriods({});
+                  }}
                   className="px-2 py-1 text-[11px] text-danger hover:bg-danger-bg rounded-lg transition-colors cursor-pointer"
                 >
                   Clear All
@@ -314,34 +369,109 @@ export function SubstitutionManager({
             </div>
           </div>
 
-          {/* Selected Absent Badges */}
+          {/* Selected Absent Teachers with Full-Day / By-Period Controls */}
           {absentTeacherCodes.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {absentTeacherCodes.map((code) => {
-                const t = TEACHER_DIRECTORY[code];
-                return (
-                  <span
-                    key={code}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-bold"
-                  >
-                    <span>{code}</span>
-                    <span className="text-[11px] font-normal text-foreground-muted">
-                      ({t?.name || "Teacher"})
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAbsent(code)}
-                      className="p-0.5 rounded-full hover:bg-red-500/20 text-red-600 cursor-pointer"
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {absentTeacherCodes.map((code) => {
+                  const t = teacherDir[code] || TEACHER_DIRECTORY[code];
+                  const isFull = isTeacherFullDay(code);
+                  const absentPeriods = teacherAbsencePeriods[code] ?? [0, 1, 2, 3, 4, 5, 6];
+
+                  return (
+                    <div
+                      key={code}
+                      className="p-3 rounded-2xl bg-card border border-red-500/30 text-xs flex flex-col gap-2 shadow-2xs"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                );
-              })}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
+                            {code}
+                          </span>
+                          {t?.dept && (
+                            <span className="px-2 py-0.5 rounded-lg bg-background-secondary text-[11px] text-foreground-muted font-medium">
+                              {t.dept}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-semibold text-foreground-muted">
+                            {isFull ? (
+                              <span className="text-red-500 font-bold">Full Day Absent</span>
+                            ) : absentPeriods.length === 0 ? (
+                              <span className="text-emerald-500 font-medium">Present All Periods</span>
+                            ) : (
+                              <span>
+                                Absent in {absentPeriods.length} period{absentPeriods.length > 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Full Day toggle button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isFull) {
+                                // Switch to specific periods: initially period 1 (index 0)
+                                setTeacherAbsencePeriods((prev) => ({ ...prev, [code]: [0] }));
+                              } else {
+                                setTeacherFullDayAbsent(code);
+                              }
+                            }}
+                            className={`px-2 py-0.5 text-[10px] rounded-lg font-bold border transition-colors cursor-pointer ${
+                              isFull
+                                ? "bg-red-500 text-white border-red-600"
+                                : "bg-background-secondary text-foreground-muted border-border hover:text-foreground"
+                            }`}
+                          >
+                            {isFull ? "Full Day" : "Specific Periods"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAbsent(code)}
+                            className="p-1 rounded-lg hover:bg-red-500/20 text-red-600 cursor-pointer"
+                            title={`Remove ${code}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Period selector: P1 through P7 */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5 border-t border-border/50">
+                        <span className="text-[10px] font-semibold text-foreground-subtle mr-0.5">
+                          {isFull ? "All Periods Absent:" : "Select Absent Periods:"}
+                        </span>
+                        {[0, 1, 2, 3, 4, 5, 6].map((pIdx) => {
+                          const isPeriodAbsent = absentPeriods.includes(pIdx);
+                          return (
+                            <button
+                              key={pIdx}
+                              type="button"
+                              onClick={() => toggleTeacherPeriodAbsence(code, pIdx)}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                                isPeriodAbsent
+                                  ? "bg-red-500 text-white shadow-2xs font-bold"
+                                  : "bg-background-secondary text-foreground-muted hover:bg-secondary hover:text-foreground border border-border"
+                              }`}
+                              title={`Period ${pIdx + 1}: ${
+                                isPeriodAbsent ? "Absent (needs sub)" : "Present (available)"
+                              }`}
+                            >
+                              P{pIdx + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <p className="text-xs text-foreground-muted italic">
-              No absent teachers selected. Click any teacher below to mark absent.
+              No absent teachers selected. Click any teacher below to mark absent (full day or specific periods).
             </p>
           )}
 
@@ -359,11 +489,11 @@ export function SubstitutionManager({
                       ? "bg-red-500 text-white border-red-600 font-bold shadow-xs"
                       : "bg-card text-foreground hover:bg-secondary border-border"
                   }`}
-                  title={`${t.name} • ${t.dept} • ${t.subject}`}
+                  title={`${t.code} • ${t.dept} • ${t.subject}`}
                 >
                   <span className="font-mono font-bold">{t.code}</span>
-                  <span className="text-[11px] opacity-80 truncate max-w-[120px]">
-                    {t.name}
+                  <span className="text-[10px] opacity-75">
+                    ({t.dept})
                   </span>
                 </button>
               );
@@ -462,7 +592,9 @@ export function SubstitutionManager({
             <p className="text-xs text-foreground-muted max-w-md mx-auto">
               {absentTeacherCodes.length === 0
                 ? "Select one or more absent teachers above to compute required substitutions."
-                : `The selected teacher(s) have no active scheduled classes on ${selectedDay}.`}
+                : `The selected teacher(s) (${absentTeacherCodes.join(
+                    ", "
+                  )}) have no classes requiring substitution on ${selectedDay}.`}
             </p>
           </div>
         ) : (
@@ -490,17 +622,24 @@ export function SubstitutionManager({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-foreground-muted">
+                    <div className="flex items-center gap-2 text-foreground-muted flex-wrap">
                       <span className="font-semibold text-foreground">{req.subject}</span>
                       <span>•</span>
                       <span>
                         Absent:{" "}
-                        <span className="font-bold text-danger">
+                        <span className="font-bold text-danger font-mono">
                           {req.originalTeacher.code}
-                        </span>{" "}
-                        ({req.originalTeacher.name})
+                        </span>
                       </span>
                     </div>
+
+                    {req.isAlreadySubstituted && req.activeSubstituteTeacher && (
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30 text-[10px]">
+                          Currently Substituted by: {req.activeSubstituteTeacher.code}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Center: Match Details & Workload Protection Status */}
@@ -511,9 +650,6 @@ export function SubstitutionManager({
                         <>
                           <span className="font-bold text-foreground font-mono">
                             {selectedCandidate.teacher.code}
-                          </span>
-                          <span className="text-foreground-muted">
-                            ({selectedCandidate.teacher.name})
                           </span>
 
                           {/* Experience & Workload badge */}
@@ -558,8 +694,23 @@ export function SubstitutionManager({
                     )}
                   </div>
 
-                  {/* Right: Override Dropdown & Quick Assign Button */}
-                  <div className="flex items-center gap-2 self-end md:self-center">
+                  {/* Right: Override Dropdown & Quick Assign / Revert Button */}
+                  <div className="flex items-center gap-2 self-end md:self-center flex-wrap sm:flex-nowrap">
+                    {/* If already substituted: 1-click Revert to Original Teacher */}
+                    {req.isAlreadySubstituted && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onRevertSubstitution(selectedDay, req.periodIndex, req.sectionId)
+                        }
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-colors cursor-pointer whitespace-nowrap"
+                        title={`Revert back to original teacher ${req.originalTeacher.code}`}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Revert ({req.originalTeacher.code})</span>
+                      </button>
+                    )}
+
                     {/* Manual override selector */}
                     <div className="relative">
                       <select
@@ -574,8 +725,7 @@ export function SubstitutionManager({
                       >
                         {req.candidates.map((cand) => (
                           <option key={cand.teacher.code} value={cand.teacher.code}>
-                            {cand.teacher.code} - {cand.teacher.name} (Load:{" "}
-                            {cand.currentDayLoad})
+                            {cand.teacher.code} ({cand.teacher.dept}) • Load: {cand.currentDayLoad}
                           </option>
                         ))}
                       </select>
@@ -592,15 +742,15 @@ export function SubstitutionManager({
                             req.sectionId,
                             req.originalTeacher.code,
                             currentAssignedCode,
-                            "Manual/Balanced Replacement"
+                            undefined
                           );
                         }
                       }}
                       disabled={!currentAssignedCode}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Assign</span>
+                      <span>{req.isAlreadySubstituted ? "Update Sub" : "Assign"}</span>
                     </button>
                   </div>
                 </div>

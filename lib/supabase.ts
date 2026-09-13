@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { DayRoutine } from "./routine-data";
+import { DayRoutine, sortDaysCanonical } from "./routine-data";
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "https://abvzruratksjqzwhhekb.supabase.co";
@@ -23,12 +23,13 @@ export async function fetchRoutineFromSupabase(): Promise<DayRoutine[] | null> {
       return null;
     }
 
-    // Map rows back to DayRoutine format
-    return data.map((row) => ({
+    // Map rows back to DayRoutine format and enforce Sunday-first week ordering
+    const mapped = data.map((row) => ({
       day: row.day,
       dateFormatted: row.date_formatted,
       sections: row.sections_data,
     }));
+    return sortDaysCanonical(mapped);
   } catch (err) {
     console.warn("Supabase fetch failed, falling back:", err);
     return null;

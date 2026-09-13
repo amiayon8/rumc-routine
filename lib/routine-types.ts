@@ -52,6 +52,38 @@ export function getTodaysFullDate(): string {
     year: "numeric",
   });
 }
+
+export const CANONICAL_DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+] as const;
+
+export type CanonicalDay = (typeof CANONICAL_DAYS)[number];
+
+export const DAY_ORDER_MAP: Record<string, number> = {
+  Sunday: 0,
+  sunday: 0,
+  Monday: 1,
+  monday: 1,
+  Tuesday: 2,
+  tuesday: 2,
+  Wednesday: 3,
+  wednesday: 3,
+  Thursday: 4,
+  thursday: 4,
+};
+
+export function sortDaysCanonical<T extends { day: string }>(days: T[]): T[] {
+  return [...days].sort((a, b) => {
+    const orderA = DAY_ORDER_MAP[a.day] ?? 99;
+    const orderB = DAY_ORDER_MAP[b.day] ?? 99;
+    return orderA - orderB;
+  });
+}
+
 export interface PeriodTiming {
   index: number;
   name: string;

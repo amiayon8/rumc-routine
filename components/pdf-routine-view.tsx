@@ -9,7 +9,9 @@ import {
   getTodaysFullDate,
   sortDaysCanonical,
   TeacherInfo,
+  TEACHER_DIRECTORY,
 } from "../lib/routine-data";
+import { getTeacherSubjectForSection } from "../lib/substitution-engine";
 import { TimingEditorModal } from "./timing-editor-modal";
 import { ClassManagerModal } from "./class-manager-modal";
 import { TeacherManagerModal } from "./teacher-manager-modal";
@@ -227,7 +229,22 @@ export function PdfRoutineView({
               <>
                 <div className="leading-tight">
                   <span className="font-semibold text-black">
-                    {cell.subject}
+                    {cell.substituteSubject ||
+                      (cell.subject && cell.subject !== cell.originalSubject
+                        ? cell.subject
+                        : getTeacherSubjectForSection(
+                            routineData,
+                            cell.substituteTeacherCode,
+                            sec.sectionId,
+                            sec.className,
+                            (teachers || TEACHER_DIRECTORY)[
+                              cell.substituteTeacherCode
+                            ]?.subject ||
+                              (teachers || TEACHER_DIRECTORY)[
+                                cell.substituteTeacherCode
+                              ]?.dept ||
+                              cell.subject,
+                          ))}
                   </span>
                   <span className="text-black font-medium"> - </span>
                   <span className="font-bold text-purple-900">

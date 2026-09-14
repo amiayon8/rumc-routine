@@ -8,7 +8,7 @@ export interface SubstitutionCandidate {
   teacher: TeacherInfo;
   isSameSubject: boolean;
   isSameDept: boolean;
-  takesThisClass: boolean; // Teaches this section or grade level
+  takesThisClass: boolean;
   takesThisSubject: boolean;
   currentDayLoad: number;
   projectedDayLoad?: number;
@@ -16,10 +16,11 @@ export interface SubstitutionCandidate {
   isOverloaded: boolean;
   score: number;
   matchReasons: string[];
+  suggestedSubject: string;
 }
 
 export interface SubstitutionRequirement {
-  id: string; // unique identifier
+  id: string;
   sectionId: string;
   className: string;
   sectionName: string;
@@ -27,6 +28,7 @@ export interface SubstitutionRequirement {
   periodName: string;
   periodTime: string;
   subject: string;
+  originalSubject?: string;
   originalTeacher: TeacherInfo;
   activeSubstituteTeacher?: TeacherInfo | null;
   isAlreadySubstituted?: boolean;
@@ -193,12 +195,64 @@ export function buildTeacherExperienceIndex(routineData: DayRoutine[]) {
   return { teacherSections, teacherClasses, teacherSubjects };
 }
 
-/**
- * Intelligent Multi-Teacher Substitution Solver:
- * 1. Checks which teachers take the selected classes and subjects
- * 2. Checks current and projected daily workloads
- * 3. Solves globally across all periods without period collisions and without overloading teachers
- */
+export function getTeacherSubjectForSection(
+  routineData: DayRoutine[],
+  teacherCode: string,
+  sectionId: string,
+  className?: string,
+  fallbackSubject?: string
+): string {
+  for (const day of routineData) {
+    for (const sec of day.sections) {
+      if (sec.sectionId === sectionId) {
+        for (const cell of sec.periods) {
+          if (
+            cell &&
+            (cell.teacherCode === teacherCode ||
+              cell.teacherCode
+                .split(/[/,]/)
+                .map((c) => c.trim())
+                .includes(teacherCode))
+          ) {
+            return cell.originalSubject || cell.subject;
+          }
+        }
+      }
+    }
+  }
+
+  if (className) {
+    for (const day of routineData) {
+      for (const sec of day.sections) {
+        if (sec.className === className) {
+          for (const cell of sec.periods) {
+            if (
+              cell &&
+              (cell.teacherCode === teacherCode ||
+                cell.teacherCode
+                  .split(/[/,]/)
+                  .map((c) => c.trim())
+                  .includes(teacherCode))
+            ) {
+              return cell.originalSubject || cell.subject;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (fallbackSubject) {
+    const tokens = fallbackSubject
+      .split(/[/,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return tokens[0] || fallbackSubject;
+  }
+
+  return "Subject";
+}
+
 export function getMultiTeacherSubstitutionPlan({
   dayName,
   absentTeacherCodes,
@@ -250,7 +304,6 @@ export function getMultiTeacherSubstitutionPlan({
       ? new Set(allowedReplacementCodes)
       : null;
 
-  // 1. Gather all affected periods across all absent teachers
   const rawRequirements: Array<{
     id: string;
     sectionId: string;
@@ -260,13 +313,13 @@ export function getMultiTeacherSubstitutionPlan({
     periodName: string;
     periodTime: string;
     subject: string;
+    originalSubject?: string;
     originalTeacher: TeacherInfo;
     activeSubstituteTeacher?: TeacherInfo | null;
     isAlreadySubstituted: boolean;
   }> = [];
 
   dayRoutine.sections.forEach((sec) => {
-    // If class is suspended/closed, no substitution is needed
     if (!sec.isActive) return;
 
     sec.periods.forEach((cell, pIdx) => {
@@ -277,12 +330,8 @@ export function getMultiTeacherSubstitutionPlan({
         ? cell.substituteTeacherCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean)
         : [];
 
-      // 1. Check if the original teacher is absent in this period
       const matchedOrigAbsent = origCodes.find((c) => isTeacherAbsentInPeriod(c, pIdx));
-
-      // 2. Check if the active substitute teacher is absent in this period
       const matchedSubAbsent = subCodes.find((c) => isTeacherAbsentInPeriod(c, pIdx));
-
       const matchedAbsent = matchedSubAbsent || matchedOrigAbsent;
 
       if (matchedAbsent) {
@@ -302,6 +351,8 @@ export function getMultiTeacherSubstitutionPlan({
             }
           : null;
 
+        const originalSubject = cell.originalSubject || cell.subject;
+
         rawRequirements.push({
           id: `${sec.sectionId}_p${pIdx}_${matchedAbsent}`,
           sectionId: sec.sectionId,
@@ -310,7 +361,8 @@ export function getMultiTeacherSubstitutionPlan({
           periodIndex: pIdx,
           periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
           periodTime: periodTimes[pIdx] || "",
-          subject: cell.subject,
+          subject: originalSubject,
+          originalSubject,
           originalTeacher: origTeacher,
           activeSubstituteTeacher: activeSubTeacher,
           isAlreadySubstituted: !!cell.substituteTeacherCode,
@@ -442,6 +494,14 @@ export function getMultiTeacherSubstitutionPlan({
       matchReasons.push(`Current load: ${currentLoad} classes`);
     }
 
+    const suggestedSubject = getTeacherSubjectForSection(
+      routineData,
+      cand.code,
+      req.sectionId,
+      req.className,
+      cand.subject || cand.dept || req.subject
+    );
+
     return {
       teacher: cand,
       isSameSubject: takesThisSubject,
@@ -454,13 +514,12 @@ export function getMultiTeacherSubstitutionPlan({
       isOverloaded,
       score,
       matchReasons,
+      suggestedSubject,
     };
   };
 
-  // Build the complete requirements with ranked candidate lists and optimal assignments
   const finalRequirements: SubstitutionRequirement[] = [];
 
-  // Sort raw requirements by period first for predictable chronological scheduling
   rawRequirements.sort((a, b) => a.periodIndex - b.periodIndex);
 
   rawRequirements.forEach((req) => {
@@ -473,15 +532,12 @@ export function getMultiTeacherSubstitutionPlan({
       }
     });
 
-    // Sort candidate list by score descending (highest priority match & lowest load first)
     candidateList.sort((a, b) => b.score - a.score);
 
-    // Pick recommended candidate (prefer non-overloaded first)
     const bestCandidate =
       candidateList.find((c) => !c.isOverloaded) || candidateList[0] || null;
 
     if (bestCandidate) {
-      // Update dynamic workload tracking if not already currently active sub
       if (!req.isAlreadySubstituted || req.activeSubstituteTeacher?.code !== bestCandidate.teacher.code) {
         simulatedLoads[bestCandidate.teacher.code] =
           (simulatedLoads[bestCandidate.teacher.code] || 0) + 1;
@@ -504,6 +560,7 @@ export function getMultiTeacherSubstitutionPlan({
       periodName: req.periodName,
       periodTime: req.periodTime,
       subject: req.subject,
+      originalSubject: req.originalSubject,
       originalTeacher: req.originalTeacher,
       activeSubstituteTeacher: req.activeSubstituteTeacher,
       isAlreadySubstituted: req.isAlreadySubstituted,
@@ -516,9 +573,6 @@ export function getMultiTeacherSubstitutionPlan({
   return finalRequirements;
 }
 
-/**
- * Backward-compatible single-teacher helper
- */
 export function getSubstitutionRequirements(
   dayName: string,
   absentTeacherCode: string,

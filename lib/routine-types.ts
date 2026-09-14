@@ -8,6 +8,8 @@ export interface RoutineCell {
   isPractical?: boolean;
   substituteTeacherCode?: string;
   substituteReason?: string;
+  originalSubject?: string;
+  substituteSubject?: string;
   isExam?: boolean;
 }
 
@@ -28,7 +30,7 @@ export interface DayRoutine {
 
 export interface TeacherInfo {
   code: string;
-  name: string;
+  name?: string;
   dept: string;
   subject: string;
   phone?: string;
@@ -82,15 +84,10 @@ export function getTodaysWeekday(): CanonicalDay {
 
 export const DAY_ORDER_MAP: Record<string, number> = {
   Sunday: 0,
-  sunday: 0,
   Monday: 1,
-  monday: 1,
   Tuesday: 2,
-  tuesday: 2,
   Wednesday: 3,
-  wednesday: 3,
   Thursday: 4,
-  thursday: 4,
 };
 
 export function sortDaysCanonical<T extends { day: string }>(days: T[]): T[] {
@@ -103,7 +100,7 @@ export function sortDaysCanonical<T extends { day: string }>(days: T[]): T[] {
 
 export interface PeriodTiming {
   index: number;
-  name: string;
+  name?: string;
   time: string;
   startTime?: string;
   endTime?: string;
@@ -111,14 +108,21 @@ export interface PeriodTiming {
 }
 
 export const DEFAULT_PERIOD_TIMINGS: PeriodTiming[] = [
-  { index: 1, name: "1st", time: "7.30-8.10", startTime: "07:30", endTime: "08:10" },
-  { index: 2, name: "2nd", time: "8.10-8.45", startTime: "08:10", endTime: "08:45" },
-  { index: 3, name: "3rd", time: "8.45-9.20", startTime: "08:45", endTime: "09:20" },
-  { index: 4, name: "4th", time: "9.20-9.55", startTime: "09:20", endTime: "09:55" },
-  { index: 0, name: "Break", time: "9.55-10:25", isBreak: true, startTime: "09:55", endTime: "10:25" },
-  { index: 5, name: "5th", time: "10.25-11.00", startTime: "10:25", endTime: "11:00" },
-  { index: 6, name: "6th", time: "11.00-11.35", startTime: "11:00", endTime: "11:35" },
-  { index: 7, name: "7th", time: "11.35-12.10", startTime: "11:35", endTime: "12:10" },
+  { index: 1, name: "1st Period", time: "7.30-8.10", startTime: "07:30", endTime: "08:10" },
+  { index: 2, name: "2nd Period", time: "8.10-8.45", startTime: "08:10", endTime: "08:45" },
+  { index: 3, name: "3rd Period", time: "8.45-9.20", startTime: "08:45", endTime: "09:20" },
+  { index: 4, name: "4th Period", time: "9.20-9.55", startTime: "09:20", endTime: "09:55" },
+  {
+    index: 0,
+    name: "Tiffin / Break",
+    time: "9.55-10:25",
+    isBreak: true,
+    startTime: "09:55",
+    endTime: "10:25",
+  },
+  { index: 5, name: "5th Period", time: "10.25-11.00", startTime: "10:25", endTime: "11:00" },
+  { index: 6, name: "6th Period", time: "11.00-11.35", startTime: "11:00", endTime: "11:35" },
+  { index: 7, name: "7th Period", time: "11.35-12.10", startTime: "11:35", endTime: "12:10" },
 ];
 
 export const PERIOD_TIMINGS = DEFAULT_PERIOD_TIMINGS;
@@ -152,60 +156,60 @@ export const SECTIONS_META = [
 ];
 
 export const TEACHER_DIRECTORY: Record<string, TeacherInfo> = {
-  AA: { code: "AA", name: "Md. Abdullah Al-Amin", dept: "Mathematics", subject: "Math" },
-  MR: { code: "MR", name: "Prof. Mahmudur Rahman", dept: "Physics", subject: "Physics" },
-  TA: { code: "TA", name: "Tanvir Ahmed", dept: "Mathematics", subject: "Math" },
-  NS: { code: "NS", name: "Dr. Nasreen Sultana", dept: "Chemistry", subject: "Chemistry" },
-  ZI: { code: "ZI", name: "Md. Ziaul Islam", dept: "Physics", subject: "Physics" },
-  GCS: { code: "GCS", name: "Gobinda Chandra Saha", dept: "Chemistry", subject: "Chemistry" },
-  SM: { code: "SM", name: "Sayeed Mahmud", dept: "English", subject: "English" },
-  IHT: { code: "IHT", name: "Imtiaz Hassan Talukder", dept: "English", subject: "English" },
-  FF: { code: "FF", name: "Fariha Ferdous", dept: "ICT", subject: "ICT" },
-  LB: { code: "LB", name: "Laila Bilkis", dept: "BGS", subject: "BGS" },
-  TIM: { code: "TIM", name: "Tariqul Islam Mondol", dept: "Mathematics", subject: "Math" },
-  UFC: { code: "UFC", name: "Umme Fatema Chowdhury", dept: "Science", subject: "Science / Home Sci" },
-  MSF: { code: "MSF", name: "Md. Sajjad Farooqi", dept: "Biology", subject: "Biology" },
-  FAJ: { code: "FAJ", name: "Farzana Akter Jahan", dept: "Biology", subject: "Biology / Science" },
-  MAM: { code: "MAM", name: "Md. Abdul Mannan", dept: "English", subject: "English" },
-  NR: { code: "NR", name: "Nurul Rashid", dept: "Mathematics", subject: "Math" },
-  DR: { code: "DR", name: "Dilruba Rahman", dept: "Bangla", subject: "Bangla" },
-  DRD: { code: "DRD", name: "Dipti Rani Das", dept: "Religion", subject: "Religion (Hindu)" },
-  AB: { code: "AB", name: "Abdul Basit", dept: "Religion", subject: "Religion (Islam)" },
-  MU: { code: "MU", name: "Mokhlesur Rahman", dept: "BGS", subject: "BGS" },
-  RMMH: { code: "RMMH", name: "Rashed Mahmud Mohsin", dept: "Religion", subject: "Religion (Islam)" },
-  AAB: { code: "AAB", name: "Ali Ahmed Bhuiyan", dept: "English", subject: "English / Religion" },
-  SZK: { code: "SZK", name: "Shahidul Zaman Khan", dept: "Mathematics", subject: "Math" },
-  MN: { code: "MN", name: "Mahbubur Nur", dept: "Bangla", subject: "Bangla" },
-  MRC: { code: "MRC", name: "M. R. Chowdhury", dept: "ICT", subject: "ICT" },
-  MHM: { code: "MHM", name: "Mirza Hasibul Morshed", dept: "Bangla", subject: "Bangla" },
-  SJB: { code: "SJB", name: "Sujit Barua", dept: "Physical Education", subject: "P.Ed" },
-  IJT: { code: "IJT", name: "Israt Jahan Tithi", dept: "Arts & Crafts", subject: "Arts / P.Ed" },
-  TAM: { code: "TAM", name: "Tahsina Akter Mitu", dept: "BGS", subject: "BGS" },
-  TU: { code: "TU", name: "Taufiq Umar", dept: "Physics", subject: "Physics" },
-  LYM: { code: "LYM", name: "Lutfunnessa Yasmin", dept: "Mathematics", subject: "Math" },
-  MS: { code: "MS", name: "Mahmudul Shakil", dept: "Bangla", subject: "Bangla" },
-  NC: { code: "NC", name: "Nazrul Chowdhury", dept: "Physics", subject: "Physics" },
-  MNI: { code: "MNI", name: "Md. Nazrul Islam", dept: "Mathematics", subject: "Math" },
-  MHN: { code: "MHN", name: "Mahmuda Hasan", dept: "Commerce", subject: "Accounting" },
-  TAH: { code: "TAH", name: "Tarek Ahmed", dept: "Commerce", subject: "Finance & Banking" },
-  MHK: { code: "MHK", name: "Md. Hasibur Khan", dept: "Commerce", subject: "Business Org" },
-  MSA: { code: "MSA", name: "Md. Shahinur Alam", dept: "Bangla", subject: "Bangla" },
-  MZI: { code: "MZI", name: "Md. Zillur Islam", dept: "Chemistry", subject: "Chemistry" },
-  MHA: { code: "MHA", name: "Mahfuzur Haque", dept: "Bangla", subject: "Bangla" },
-  RAI: { code: "RAI", name: "Rabiul Alam", dept: "ICT", subject: "ICT" },
-  SJ: { code: "SJ", name: "Suraiya Jahan", dept: "Biology", subject: "Biology" },
-  MRN: { code: "MRN", name: "Mizanur Rahman", dept: "Chemistry", subject: "Chemistry" },
-  YK: { code: "YK", name: "Yousuf Khan", dept: "Statistics", subject: "Statistics / Math" },
-  AAN: { code: "AAN", name: "Ashraful Anam", dept: "Technical", subject: "Engineering Drw / Math" },
-  SRY: { code: "SRY", name: "Shamima R. Yasmin", dept: "Science", subject: "Science / Agriculture" },
-  SA: { code: "SA", name: "Shahidul Alam", dept: "BGS", subject: "BGS / Agriculture" },
-  ARH: { code: "ARH", name: "Abdur Rashid", dept: "Languages", subject: "Language Lab" },
-  AAM: { code: "AAM", name: "Abdullah Al Masud", dept: "Library", subject: "Library" },
-  RHR: { code: "RHR", name: "Rashedul Haque", dept: "English", subject: "English" },
-  RTM: { code: "RTM", name: "Rifat Tasnim", dept: "English", subject: "English" },
-  ASM: { code: "ASM", name: "Abu Sayeed", dept: "English", subject: "English" },
-  KI: { code: "KI", name: "Kamrul Islam", dept: "English", subject: "English" },
-  CM: { code: "CM", name: "Chitta Majumder", dept: "Bangla", subject: "Bangla" },
-  ZC: { code: "ZC", name: "Ziaur Chowdhury", dept: "Chemistry", subject: "Chemistry / Science" },
-  ZUR: { code: "ZUR", name: "Ziaur Rahman", dept: "Mathematics", subject: "Math" },
+  AA: { code: "AA", dept: "Mathematics", subject: "Math" },
+  MR: { code: "MR", dept: "Physics", subject: "Physics" },
+  TA: { code: "TA", dept: "Mathematics", subject: "Math" },
+  NS: { code: "NS", dept: "Chemistry", subject: "Chemistry" },
+  ZI: { code: "ZI", dept: "Physics", subject: "Physics" },
+  GCS: { code: "GCS", dept: "Chemistry", subject: "Chemistry" },
+  SM: { code: "SM", dept: "English", subject: "English" },
+  IHT: { code: "IHT", dept: "English", subject: "English" },
+  FF: { code: "FF", dept: "ICT", subject: "ICT" },
+  LB: { code: "LB", dept: "BGS", subject: "BGS" },
+  TIM: { code: "TIM", dept: "Mathematics", subject: "Math" },
+  UFC: { code: "UFC", dept: "Science", subject: "Science / Home Sci" },
+  MSF: { code: "MSF", dept: "Biology", subject: "Biology" },
+  FAJ: { code: "FAJ", dept: "Biology", subject: "Biology / Science" },
+  MAM: { code: "MAM", dept: "English", subject: "English" },
+  NR: { code: "NR", dept: "Mathematics", subject: "Math" },
+  DR: { code: "DR", dept: "Bangla", subject: "Bangla" },
+  DRD: { code: "DRD", dept: "Religion", subject: "Religion (Hindu)" },
+  AB: { code: "AB", dept: "Religion", subject: "Religion (Islam)" },
+  MU: { code: "MU", dept: "BGS", subject: "BGS" },
+  RMMH: { code: "RMMH", dept: "Religion", subject: "Religion (Islam)" },
+  AAB: { code: "AAB", dept: "English", subject: "English / Religion" },
+  SZK: { code: "SZK", dept: "Mathematics", subject: "Math" },
+  MN: { code: "MN", dept: "Bangla", subject: "Bangla" },
+  MRC: { code: "MRC", dept: "ICT", subject: "ICT" },
+  MHM: { code: "MHM", dept: "Bangla", subject: "Bangla" },
+  SJB: { code: "SJB", dept: "Physical Education", subject: "P.Ed" },
+  IJT: { code: "IJT", dept: "Arts & Crafts", subject: "Arts / P.Ed" },
+  TAM: { code: "TAM", dept: "BGS", subject: "BGS" },
+  TU: { code: "TU", dept: "Physics", subject: "Physics" },
+  LYM: { code: "LYM", dept: "Mathematics", subject: "Math" },
+  MS: { code: "MS", dept: "Bangla", subject: "Bangla" },
+  NC: { code: "NC", dept: "Physics", subject: "Physics" },
+  MNI: { code: "MNI", dept: "Mathematics", subject: "Math" },
+  MHN: { code: "MHN", dept: "Commerce", subject: "Accounting" },
+  TAH: { code: "TAH", dept: "Commerce", subject: "Finance & Banking" },
+  MHK: { code: "MHK", dept: "Commerce", subject: "Business Org" },
+  MSA: { code: "MSA", dept: "Bangla", subject: "Bangla" },
+  MZI: { code: "MZI", dept: "Chemistry", subject: "Chemistry" },
+  MHA: { code: "MHA", dept: "Bangla", subject: "Bangla" },
+  RAI: { code: "RAI", dept: "ICT", subject: "ICT" },
+  SJ: { code: "SJ", dept: "Biology", subject: "Biology" },
+  MRN: { code: "MRN", dept: "Chemistry", subject: "Chemistry" },
+  YK: { code: "YK", dept: "Statistics", subject: "Statistics / Math" },
+  AAN: { code: "AAN", dept: "Technical", subject: "Engineering Drw / Math" },
+  SRY: { code: "SRY", dept: "Science", subject: "Science / Agriculture" },
+  SA: { code: "SA", dept: "BGS", subject: "BGS / Agriculture" },
+  ARH: { code: "ARH", dept: "Languages", subject: "Language Lab" },
+  AAM: { code: "AAM", dept: "Library", subject: "Library" },
+  RHR: { code: "RHR", dept: "English", subject: "English" },
+  RTM: { code: "RTM", dept: "English", subject: "English" },
+  ASM: { code: "ASM", dept: "English", subject: "English" },
+  KI: { code: "KI", dept: "English", subject: "English" },
+  CM: { code: "CM", dept: "Bangla", subject: "Bangla" },
+  ZC: { code: "ZC", dept: "Chemistry", subject: "Chemistry / Science" },
+  ZUR: { code: "ZUR", dept: "Mathematics", subject: "Math" },
 };

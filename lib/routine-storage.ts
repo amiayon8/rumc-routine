@@ -624,7 +624,8 @@ export function useRoutineStore() {
       sectionId: string,
       originalTeacherCode: string,
       substituteTeacherCode: string,
-      reason?: string
+      reason?: string,
+      newSubject?: string
     ) => {
       recordHistorySnapshot();
       const next = memoryRoutine.map((day) => {
@@ -635,10 +636,23 @@ export function useRoutineStore() {
             if (sec.sectionId !== sectionId) return sec;
             const newPeriods = sec.periods.map((cell, idx) => {
               if (idx !== periodIndex || !cell) return cell;
+              const originalSubject = cell.originalSubject || cell.subject;
+              const subTeacher =
+                teachers[substituteTeacherCode] ||
+                memoryTeachers[substituteTeacherCode] ||
+                TEACHER_DIRECTORY[substituteTeacherCode];
+              const resolvedSubject =
+                newSubject ||
+                subTeacher?.subject ||
+                subTeacher?.dept ||
+                originalSubject;
               return {
                 ...cell,
+                originalSubject,
+                subject: resolvedSubject,
                 substituteTeacherCode,
                 substituteReason: reason || undefined,
+                substituteSubject: resolvedSubject,
               };
             });
             return { ...sec, periods: newPeriods };
@@ -656,7 +670,7 @@ export function useRoutineStore() {
         reason,
       });
     },
-    []
+    [teachers]
   );
 
   const revertSubstitution = React.useCallback(
@@ -673,6 +687,11 @@ export function useRoutineStore() {
               const copy = { ...cell };
               delete copy.substituteTeacherCode;
               delete copy.substituteReason;
+              if (copy.originalSubject) {
+                copy.subject = copy.originalSubject;
+                delete copy.originalSubject;
+              }
+              delete copy.substituteSubject;
               return copy;
             });
             return { ...sec, periods: newPeriods };

@@ -1290,18 +1290,6 @@ export function IndividualRoutineView({
                 />
               </div>
 
-              <div>
-                <label className="font-medium text-foreground block mb-1">
-                  Room (Optional)
-                </label>
-                <input
-                  name="room"
-                  defaultValue={editingCell.cell?.room || ""}
-                  placeholder="e.g. 201, Lab 2"
-                  className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
               {editingCell.cell?.substituteTeacherCode && (
                 <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between text-xs">
                   <div>

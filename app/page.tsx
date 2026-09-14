@@ -52,7 +52,9 @@ export default function Home() {
       const isEditingText =
         activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement ||
-        Boolean(activeElement && (activeElement as HTMLElement).isContentEditable);
+        Boolean(
+          activeElement && (activeElement as HTMLElement).isContentEditable,
+        );
 
       if (isEditingText) {
         return;
@@ -65,7 +67,10 @@ export default function Home() {
       if (key === "z" && !event.shiftKey) {
         event.preventDefault();
         undo();
-      } else if ((key === "y" && !event.shiftKey) || (key === "z" && event.shiftKey)) {
+      } else if (
+        (key === "y" && !event.shiftKey) ||
+        (key === "z" && event.shiftKey)
+      ) {
         event.preventDefault();
         redo();
       }
@@ -178,11 +183,17 @@ export default function Home() {
             <span className="font-semibold text-foreground">
               Rajuk Uttara Model College
             </span>
-            <span>•</span>
-            <span>Daywise Class Routine 2026 (EMMS)</span>
           </div>
           <div className="flex items-center gap-2 text-foreground-subtle">
-            <span>Powered by <a href="https://www.thenicedev.xyz" className="text-black dark:text-white">The Nice Developer</a></span>
+            <span>
+              Powered by{" "}
+              <a
+                href="https://www.thenicedev.xyz"
+                className="text-black dark:text-white"
+              >
+                The Nice Developer
+              </a>
+            </span>
           </div>
         </div>
       </footer>

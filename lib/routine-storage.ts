@@ -150,7 +150,14 @@ function getSnapshot(): DayRoutine[] {
       if (teachersItem) {
         const parsedTeachers = JSON.parse(teachersItem);
         if (parsedTeachers && typeof parsedTeachers === "object") {
-          memoryTeachers = parsedTeachers;
+          const sanitizedTeachers: Record<string, TeacherInfo> = {};
+          for (const [code, teacher] of Object.entries(parsedTeachers)) {
+            if (teacher && typeof teacher === "object") {
+              const { name: _legacyName, ...rest } = teacher as Record<string, any>;
+              sanitizedTeachers[code] = rest as TeacherInfo;
+            }
+          }
+          memoryTeachers = sanitizedTeachers;
         }
       }
     } catch (e) {
@@ -527,7 +534,6 @@ export function useRoutineStore() {
         ...memoryTeachers,
         [code]: {
           code,
-          name: code,
           dept: newTeacher.dept.trim() || "General",
           subject: newTeacher.subject.trim() || "General",
         },
@@ -560,7 +566,6 @@ export function useRoutineStore() {
       }
       nextTeachers[newCode] = {
         code: newCode,
-        name: newCode,
         dept: updated.dept.trim() || "General",
         subject: updated.subject.trim() || "General",
       };

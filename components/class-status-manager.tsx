@@ -364,14 +364,9 @@ export function ClassStatusManager({
                 <Layers className="w-5 h-5" />
               </div>
               <h2 className="font-bold text-lg text-foreground tracking-tight">
-                Classes Active &amp; Closed Manager
+                Classes Manager
               </h2>
             </div>
-            <p className="text-xs text-foreground-muted mt-1">
-              Add, edit, delete, and reorder classes and sections. Marking
-              classes as closed automatically frees assigned teachers for
-              substitution.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">

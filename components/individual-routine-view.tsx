@@ -85,7 +85,6 @@ export function IndividualRoutineView({
               if (!teacherMap[c]) {
                 teacherMap[c] = {
                   code: c,
-                  name: c,
                   dept: "General",
                   subject: p.subject || "Subject",
                 };
@@ -99,7 +98,6 @@ export function IndividualRoutineView({
     return teacherMap;
   }, [routineData, teachers]);
 
-  // Compute teaching schedule for each teacher:
   const teacherSchedules = React.useMemo(() => {
     const schedules: Record<
       string,

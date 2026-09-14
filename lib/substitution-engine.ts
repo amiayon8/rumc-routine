@@ -99,7 +99,6 @@ export function calculateTeacherLoads(
         result[code] = {
           teacher: directory[code] || {
             code,
-            name: `Teacher ${code}`,
             dept: "General",
             subject: teacherSubjects[code] || "Subject",
           },
@@ -208,6 +207,7 @@ export function getTeacherSubjectForSection(
         for (const cell of sec.periods) {
           if (
             cell &&
+            !cell.substituteTeacherCode &&
             (cell.teacherCode === teacherCode ||
               cell.teacherCode
                 .split(/[/,]/)
@@ -228,6 +228,7 @@ export function getTeacherSubjectForSection(
           for (const cell of sec.periods) {
             if (
               cell &&
+              !cell.substituteTeacherCode &&
               (cell.teacherCode === teacherCode ||
                 cell.teacherCode
                   .split(/[/,]/)
@@ -237,6 +238,24 @@ export function getTeacherSubjectForSection(
               return cell.originalSubject || cell.subject;
             }
           }
+        }
+      }
+    }
+  }
+
+  for (const day of routineData) {
+    for (const sec of day.sections) {
+      for (const cell of sec.periods) {
+        if (
+          cell &&
+          !cell.substituteTeacherCode &&
+          (cell.teacherCode === teacherCode ||
+            cell.teacherCode
+              .split(/[/,]/)
+              .map((c) => c.trim())
+              .includes(teacherCode))
+        ) {
+          return cell.originalSubject || cell.subject;
         }
       }
     }
@@ -337,7 +356,6 @@ export function getMultiTeacherSubstitutionPlan({
       if (matchedAbsent) {
         const origTeacher = teachersDirectory[cell.teacherCode] || {
           code: cell.teacherCode,
-          name: cell.teacherCode,
           dept: "General",
           subject: cell.subject,
         };
@@ -345,7 +363,6 @@ export function getMultiTeacherSubstitutionPlan({
         const activeSubTeacher = cell.substituteTeacherCode
           ? teachersDirectory[cell.substituteTeacherCode] || {
               code: cell.substituteTeacherCode,
-              name: cell.substituteTeacherCode,
               dept: "General",
               subject: cell.subject,
             }

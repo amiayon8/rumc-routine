@@ -14,6 +14,7 @@ import {
 import {
   getMultiTeacherSubstitutionPlan,
   SubstitutionRequirement,
+  calculateTeacherLoads,
 } from "../lib/substitution-engine";
 import {
   UserX,
@@ -98,15 +99,21 @@ export function SubstitutionManager({
 
   const teacherDir = teachers || TEACHER_DIRECTORY;
 
+  const teacherLoads = React.useMemo(() => {
+    return calculateTeacherLoads(routineData, teacherDir);
+  }, [routineData, teacherDir]);
+
   const allTeachersList: TeacherInfo[] = React.useMemo(() => {
-    return Object.values(teacherDir).sort((a, b) =>
-      a.code.localeCompare(b.code),
-    );
-  }, [teacherDir]);
+    return Object.values(teacherLoads)
+      .map((summary) => summary.teacher)
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [teacherLoads]);
 
   const departmentsList = React.useMemo(() => {
     const depts = new Set<string>();
-    allTeachersList.forEach((t) => depts.add(t.dept));
+    allTeachersList.forEach((t) => {
+      if (t.dept) depts.add(t.dept);
+    });
     return ["All", ...Array.from(depts).sort()];
   }, [allTeachersList]);
 
@@ -347,7 +354,13 @@ export function SubstitutionManager({
       if (a.periodIndex !== b.periodIndex) return a.periodIndex - b.periodIndex;
       return a.sectionId.localeCompare(b.sectionId);
     });
-  }, [routineData, selectedDay, requirements, manualAssignments, manualSubjects]);
+  }, [
+    routineData,
+    selectedDay,
+    requirements,
+    manualAssignments,
+    manualSubjects,
+  ]);
 
   const currentDayRoutine = React.useMemo(() => {
     return routineData.find((d) => d.day === selectedDay) || routineData[0];
@@ -484,9 +497,6 @@ export function SubstitutionManager({
             <div>
               <label className="font-semibold text-foreground block mb-1.5 flex items-center justify-between">
                 <span>Max Daily Workload</span>
-                <span className="text-foreground-muted text-[11px]">
-                  Guard against overload
-                </span>
               </label>
               <select
                 value={maxDailyLoad}
@@ -506,9 +516,6 @@ export function SubstitutionManager({
             <div>
               <label className="font-semibold text-foreground block mb-1.5 flex items-center justify-between">
                 <span>Replacement Faculty Pool</span>
-                <span className="text-foreground-muted text-[11px]">
-                  Eligible substitutes
-                </span>
               </label>
               <div className="flex items-center gap-2 pt-1">
                 <button
@@ -605,9 +612,9 @@ export function SubstitutionManager({
                             <span className="font-mono font-bold text-red-600 dark:text-red-400 text-sm">
                               {code}
                             </span>
-                            {t?.dept && (
+                            {(t?.subject || t?.dept) && (
                               <span className="px-2 py-0.5 rounded-lg bg-background-secondary text-[11px] text-foreground-muted font-medium">
-                                {t.dept}
+                                {t.subject || t.dept}
                               </span>
                             )}
                             <span className="text-[11px] font-semibold text-foreground-muted">
@@ -717,10 +724,12 @@ export function SubstitutionManager({
                         ? "bg-red-500 text-white border-red-600 font-bold shadow-xs"
                         : "bg-card text-foreground hover:bg-secondary border-border"
                     }`}
-                    title={`${t.code} • ${t.dept} • ${t.subject}`}
+                    title={`${t.code} • ${t.subject || t.dept}`}
                   >
                     <span className="font-mono font-bold">{t.code}</span>
-                    <span className="text-[10px] opacity-75">({t.dept})</span>
+                    <span className="text-[10px] opacity-75">
+                      ({t.subject || t.dept})
+                    </span>
                   </button>
                 );
               })}
@@ -776,8 +785,9 @@ export function SubstitutionManager({
                             ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
                             : "bg-card text-foreground-muted hover:text-foreground border-border"
                         }`}
+                        title={`${t.code} • ${t.subject || t.dept}`}
                       >
-                        {t.code} ({t.dept})
+                        {t.code} ({t.subject || t.dept})
                       </button>
                     );
                   })}
@@ -1021,7 +1031,7 @@ export function SubstitutionManager({
                               key={cand.teacher.code}
                               value={cand.teacher.code}
                             >
-                              {cand.teacher.code} ({cand.teacher.dept}) • Load:{" "}
+                              {cand.teacher.code} ({cand.teacher.subject || cand.teacher.dept}) • Load:{" "}
                               {cand.currentDayLoad}
                             </option>
                           ))}
@@ -1096,11 +1106,12 @@ export function SubstitutionManager({
                       <span className="text-purple-600 dark:text-purple-400 font-semibold">
                         • {sub.subject}
                       </span>
-                      {sub.originalSubject && sub.originalSubject !== sub.subject && (
-                        <span className="text-foreground-muted text-[10px] line-through">
-                          ({sub.originalSubject})
-                        </span>
-                      )}
+                      {sub.originalSubject &&
+                        sub.originalSubject !== sub.subject && (
+                          <span className="text-foreground-muted text-[10px] line-through">
+                            ({sub.originalSubject})
+                          </span>
+                        )}
                     </div>
                     <div className="text-[11px] text-foreground-muted mt-0.5">
                       Original:{" "}
@@ -1372,11 +1383,12 @@ export function SubstitutionManager({
                               <div className="font-bold text-[12px] text-black">
                                 {sub.subject}
                               </div>
-                              {sub.originalSubject && sub.originalSubject !== sub.subject && (
-                                <div className="text-[9px] text-zinc-500 line-through">
-                                  was {sub.originalSubject}
-                                </div>
-                              )}
+                              {sub.originalSubject &&
+                                sub.originalSubject !== sub.subject && (
+                                  <div className="text-[9px] text-zinc-500 line-through">
+                                    was {sub.originalSubject}
+                                  </div>
+                                )}
                             </td>
                             <td
                               className="p-1.5 text-center"
@@ -1387,8 +1399,7 @@ export function SubstitutionManager({
                               </span>
                               {origTeacher && (
                                 <div className="text-[10px] text-zinc-600">
-                                  {origTeacher.name || origTeacher.dept} (
-                                  {origTeacher.dept})
+                                  {origTeacher.subject || origTeacher.dept}
                                 </div>
                               )}
                             </td>
@@ -1404,8 +1415,7 @@ export function SubstitutionManager({
                               </span>
                               {subTeacher && (
                                 <div className="text-[10px] text-purple-900 font-medium">
-                                  {subTeacher.name || subTeacher.dept} (
-                                  {subTeacher.dept})
+                                  {subTeacher.subject || subTeacher.dept}
                                 </div>
                               )}
                             </td>
@@ -1590,11 +1600,13 @@ export function SubstitutionManager({
                                 <div className="font-bold text-[12px] text-black leading-tight">
                                   {subData.subject}
                                 </div>
-                                {subData.originalSubject && subData.originalSubject !== subData.subject && (
-                                  <div className="text-[8px] text-zinc-500 line-through">
-                                    was {subData.originalSubject}
-                                  </div>
-                                )}
+                                {subData.originalSubject &&
+                                  subData.originalSubject !==
+                                    subData.subject && (
+                                    <div className="text-[8px] text-zinc-500 line-through">
+                                      was {subData.originalSubject}
+                                    </div>
+                                  )}
                                 <div className="flex items-center justify-center gap-1">
                                   <span className="font-mono font-bold text-purple-700 text-[13px]">
                                     {subData.substituteTeacherCode}

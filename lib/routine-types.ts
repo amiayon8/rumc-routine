@@ -30,7 +30,6 @@ export interface DayRoutine {
 
 export interface TeacherInfo {
   code: string;
-  name?: string;
   dept: string;
   subject: string;
   phone?: string;

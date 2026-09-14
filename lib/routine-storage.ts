@@ -27,6 +27,16 @@ let memoryTeachers: Record<string, TeacherInfo> = TEACHER_DIRECTORY;
 let hasLoadedFromStorage = false;
 let cloudSyncStatus: "synced" | "syncing" | "offline" = "synced";
 
+interface RoutineSnapshot {
+  routine: DayRoutine[];
+  timings: PeriodTiming[];
+  teachers: Record<string, TeacherInfo>;
+}
+
+const undoStack: RoutineSnapshot[] = [];
+const redoStack: RoutineSnapshot[] = [];
+const MAX_HISTORY_LIMIT = 50;
+
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void) {
@@ -34,6 +44,89 @@ function subscribe(listener: () => void) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+function createSnapshot(): RoutineSnapshot {
+  return {
+    routine: JSON.parse(JSON.stringify(memoryRoutine)),
+    timings: JSON.parse(JSON.stringify(memoryTimings)),
+    teachers: JSON.parse(JSON.stringify(memoryTeachers)),
+  };
+}
+
+function recordHistorySnapshot() {
+  undoStack.push(createSnapshot());
+  if (undoStack.length > MAX_HISTORY_LIMIT) {
+    undoStack.shift();
+  }
+  redoStack.length = 0;
+  listeners.forEach((l) => l());
+}
+
+function restoreSnapshot(snapshot: RoutineSnapshot) {
+  memoryRoutine = sortDaysCanonical(snapshot.routine);
+  memoryTimings = snapshot.timings;
+  memoryTeachers = snapshot.teachers;
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryRoutine));
+      window.localStorage.setItem(TIMINGS_STORAGE_KEY, JSON.stringify(memoryTimings));
+      window.localStorage.setItem(TEACHERS_STORAGE_KEY, JSON.stringify(memoryTeachers));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  listeners.forEach((l) => l());
+
+  if (typeof window !== "undefined") {
+    cloudSyncStatus = "syncing";
+    listeners.forEach((l) => l());
+
+    Promise.all([
+      saveRoutineToSupabase(memoryRoutine),
+      saveTimingsToSupabase(memoryTimings),
+    ])
+      .then(([routineOk]) => {
+        cloudSyncStatus = routineOk ? "synced" : "offline";
+        listeners.forEach((l) => l());
+      })
+      .catch(() => {
+        cloudSyncStatus = "offline";
+        listeners.forEach((l) => l());
+      });
+  }
+}
+
+function undoAction(): boolean {
+  if (undoStack.length === 0) return false;
+  const previousState = undoStack.pop()!;
+  redoStack.push(createSnapshot());
+  if (redoStack.length > MAX_HISTORY_LIMIT) {
+    redoStack.shift();
+  }
+  restoreSnapshot(previousState);
+  return true;
+}
+
+function redoAction(): boolean {
+  if (redoStack.length === 0) return false;
+  const nextState = redoStack.pop()!;
+  undoStack.push(createSnapshot());
+  if (undoStack.length > MAX_HISTORY_LIMIT) {
+    undoStack.shift();
+  }
+  restoreSnapshot(nextState);
+  return true;
+}
+
+function getCanUndoSnapshot(): boolean {
+  return undoStack.length > 0;
+}
+
+function getCanRedoSnapshot(): boolean {
+  return redoStack.length > 0;
 }
 
 function getSnapshot(): DayRoutine[] {
@@ -70,14 +163,14 @@ function getSnapshot(): DayRoutine[] {
 
 function getTimingsSnapshot(): PeriodTiming[] {
   if (typeof window !== "undefined" && !hasLoadedFromStorage) {
-    getSnapshot(); // loads all
+    getSnapshot();
   }
   return memoryTimings;
 }
 
 function getTeachersSnapshot(): Record<string, TeacherInfo> {
   if (typeof window !== "undefined" && !hasLoadedFromStorage) {
-    getSnapshot(); // loads all
+    getSnapshot();
   }
   return memoryTeachers;
 }
@@ -187,7 +280,18 @@ export function useRoutineStore() {
     getServerTeachersSnapshot
   );
 
-  // Sync with Supabase on initial mount
+  const canUndo = React.useSyncExternalStore<boolean>(
+    subscribe,
+    getCanUndoSnapshot,
+    () => false
+  );
+
+  const canRedo = React.useSyncExternalStore<boolean>(
+    subscribe,
+    getCanRedoSnapshot,
+    () => false
+  );
+
   React.useEffect(() => {
     let active = true;
 
@@ -198,7 +302,6 @@ export function useRoutineStore() {
         cloudSyncStatus = "synced";
         listeners.forEach((l) => l());
       } else {
-        // Seed Supabase with initial routine
         saveRoutineToSupabase(DEFAULT_ROUTINE_DATA).then((ok) => {
           if (!active) return;
           cloudSyncStatus = ok ? "synced" : "offline";
@@ -226,6 +329,7 @@ export function useRoutineStore() {
       periodIndex: number,
       newCell: RoutineCell | null
     ) => {
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => {
         if (day.day !== dayName) return day;
         return {
@@ -248,6 +352,7 @@ export function useRoutineStore() {
 
   const toggleSectionStatus = React.useCallback(
     (dayName: string, sectionId: string, isActive: boolean, statusReason?: string) => {
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => {
         if (day.day !== dayName) return day;
         return {
@@ -276,6 +381,7 @@ export function useRoutineStore() {
       );
       if (exists) return false;
 
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => ({
         ...day,
         sections: [
@@ -296,6 +402,7 @@ export function useRoutineStore() {
   );
 
   const removeSection = React.useCallback((sectionId: string) => {
+    recordHistorySnapshot();
     const next = memoryRoutine.map((day) => ({
       ...day,
       sections: day.sections.filter((s) => s.sectionId !== sectionId),
@@ -319,6 +426,7 @@ export function useRoutineStore() {
         return false;
       }
 
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => ({
         ...day,
         sections: day.sections.map((sec) => {
@@ -338,6 +446,7 @@ export function useRoutineStore() {
   );
 
   const reorderSections = React.useCallback((orderedSectionIds: string[]) => {
+    recordHistorySnapshot();
     const orderMap = new Map(orderedSectionIds.map((id, index) => [id, index]));
     const next = memoryRoutine.map((day) => {
       const sortedSections = [...day.sections].sort((a, b) => {
@@ -350,10 +459,70 @@ export function useRoutineStore() {
     updateState(next);
   }, []);
 
+  const renameClass = React.useCallback(
+    (oldClassName: string, newClassName: string): boolean => {
+      const trimmedNew = newClassName.trim();
+      const trimmedOld = oldClassName.trim();
+      if (!trimmedNew || trimmedNew === trimmedOld) return false;
+
+      recordHistorySnapshot();
+      const next = memoryRoutine.map((day) => ({
+        ...day,
+        sections: day.sections.map((sec) => {
+          if (sec.className.trim() !== trimmedOld) return sec;
+          return {
+            ...sec,
+            className: trimmedNew,
+          };
+        }),
+      }));
+      updateState(next);
+      return true;
+    },
+    [],
+  );
+
+  const deleteClass = React.useCallback((className: string) => {
+    const trimmed = className.trim();
+    recordHistorySnapshot();
+    const next = memoryRoutine.map((day) => ({
+      ...day,
+      sections: day.sections.filter((s) => s.className.trim() !== trimmed),
+    }));
+    updateState(next);
+  }, []);
+
+  const addClass = React.useCallback(
+    (className: string, initialSectionName = "A"): boolean => {
+      const trimmed = className.trim();
+      if (!trimmed) return false;
+      const classExists = memoryRoutine.some((day) =>
+        day.sections.some(
+          (s) => s.className.trim().toLowerCase() === trimmed.toLowerCase(),
+        ),
+      );
+      if (classExists) return false;
+
+      const num = trimmed.replace(/\D/g, "");
+      const secLetter = initialSectionName.trim().toUpperCase() || "A";
+      const targetId = num
+        ? `${num}${secLetter}`
+        : `${trimmed.slice(0, 3).toUpperCase()}${secLetter}`;
+
+      return addSection({
+        sectionId: targetId,
+        className: trimmed,
+        sectionName: secLetter,
+      });
+    },
+    [addSection],
+  );
+
   const addTeacher = React.useCallback(
     (newTeacher: { code: string; dept: string; subject: string }): boolean => {
       const code = newTeacher.code.trim().toUpperCase();
       if (!code) return false;
+      recordHistorySnapshot();
       const updated = {
         ...memoryTeachers,
         [code]: {
@@ -370,6 +539,7 @@ export function useRoutineStore() {
   );
 
   const removeTeacher = React.useCallback((code: string) => {
+    recordHistorySnapshot();
     const updated = { ...memoryTeachers };
     delete updated[code];
     updateTeachersState(updated);
@@ -383,6 +553,7 @@ export function useRoutineStore() {
       const newCode = updated.code.trim().toUpperCase();
       if (!newCode) return false;
 
+      recordHistorySnapshot();
       const nextTeachers = { ...memoryTeachers };
       if (newCode !== oldCode) {
         delete nextTeachers[oldCode];
@@ -435,6 +606,7 @@ export function useRoutineStore() {
   );
 
   const resetTeachers = React.useCallback(() => {
+    recordHistorySnapshot();
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem(TEACHERS_STORAGE_KEY);
@@ -454,6 +626,7 @@ export function useRoutineStore() {
       substituteTeacherCode: string,
       reason?: string
     ) => {
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => {
         if (day.day !== dayName) return day;
         return {
@@ -488,6 +661,7 @@ export function useRoutineStore() {
 
   const revertSubstitution = React.useCallback(
     (dayName: string, periodIndex: number, sectionId: string) => {
+      recordHistorySnapshot();
       const next = memoryRoutine.map((day) => {
         if (day.day !== dayName) return day;
         return {
@@ -511,11 +685,13 @@ export function useRoutineStore() {
   );
 
   const updateTimings = React.useCallback((newTimings: PeriodTiming[]) => {
+    recordHistorySnapshot();
     updateTimingsState(newTimings, true);
   }, []);
 
   const updatePeriodTime = React.useCallback(
     (index: number, newTime: string, newName?: string) => {
+      recordHistorySnapshot();
       const next = memoryTimings.map((t) => {
         if (t.index !== index) return t;
         return {
@@ -530,6 +706,7 @@ export function useRoutineStore() {
   );
 
   const resetTimings = React.useCallback(() => {
+    recordHistorySnapshot();
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem(TIMINGS_STORAGE_KEY);
@@ -541,6 +718,7 @@ export function useRoutineStore() {
   }, []);
 
   const resetAll = React.useCallback(() => {
+    recordHistorySnapshot();
     hasLoadedFromStorage = true;
     if (typeof window !== "undefined") {
       try {
@@ -575,6 +753,7 @@ export function useRoutineStore() {
     try {
       const parsed = JSON.parse(jsonString);
       if (parsed.routine && Array.isArray(parsed.routine)) {
+        recordHistorySnapshot();
         updateState(parsed.routine, true);
         if (parsed.timings && Array.isArray(parsed.timings)) {
           updateTimingsState(parsed.timings, true);
@@ -582,6 +761,7 @@ export function useRoutineStore() {
         return true;
       }
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].sections) {
+        recordHistorySnapshot();
         updateState(parsed, true);
         return true;
       }
@@ -601,6 +781,9 @@ export function useRoutineStore() {
     removeSection,
     editSection,
     reorderSections,
+    addClass,
+    renameClass,
+    deleteClass,
     applySubstitution,
     revertSubstitution,
     updateTimings,
@@ -614,5 +797,9 @@ export function useRoutineStore() {
     removeTeacher,
     editTeacher,
     resetTeachers,
+    undo: React.useCallback(() => undoAction(), []),
+    redo: React.useCallback(() => redoAction(), []),
+    canUndo,
+    canRedo,
   };
 }

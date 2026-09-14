@@ -71,8 +71,8 @@ function TimingEditorContent({
   const pBreak = formData.find((t) => t.index === 0);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto space-y-5 p-6">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto space-y-4 sm:space-y-5 p-4 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-2.5">

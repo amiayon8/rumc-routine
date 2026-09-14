@@ -15,10 +15,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = React.useState<ViewTab>("routine-pdf");
   const [currentDay, setCurrentDay] = React.useState<string>(getTodaysWeekday);
 
-  React.useEffect(() => {
-    setCurrentDay(getTodaysWeekday());
-  }, []);
-
   const {
     routineData,
     timings,
@@ -29,6 +25,9 @@ export default function Home() {
     removeSection,
     editSection,
     reorderSections,
+    addClass,
+    renameClass,
+    deleteClass,
     applySubstitution,
     revertSubstitution,
     updateTimings,
@@ -41,7 +40,42 @@ export default function Home() {
     removeTeacher,
     editTeacher,
     resetTeachers,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useRoutineStore();
+
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      const isEditingText =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        Boolean(activeElement && (activeElement as HTMLElement).isContentEditable);
+
+      if (isEditingText) {
+        return;
+      }
+
+      const isModifier = event.ctrlKey || event.metaKey;
+      if (!isModifier) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if ((key === "y" && !event.shiftKey) || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [undo, redo]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-200">
@@ -49,9 +83,13 @@ export default function Home() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         cloudStatus={cloudStatus}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
         {activeTab === "routine-pdf" && (
           <PdfRoutineView
             routineData={routineData}
@@ -69,6 +107,9 @@ export default function Home() {
             onRemoveSection={removeSection}
             onEditSection={editSection}
             onReorderSections={reorderSections}
+            onAddClass={addClass}
+            onRenameClass={renameClass}
+            onDeleteClass={deleteClass}
             teachers={teachers}
             onAddTeacher={addTeacher}
             onRemoveTeacher={removeTeacher}
@@ -83,6 +124,8 @@ export default function Home() {
             routineData={routineData}
             timings={timings}
             teachers={teachers}
+            onUpdateCell={updateCell}
+            onToggleSectionStatus={toggleSectionStatus}
           />
         )}
 
@@ -115,6 +158,13 @@ export default function Home() {
             routineData={routineData}
             currentDay={currentDay}
             onToggleSectionStatus={toggleSectionStatus}
+            onAddClass={addClass}
+            onRenameClass={renameClass}
+            onDeleteClass={deleteClass}
+            onAddSection={addSection}
+            onRemoveSection={removeSection}
+            onEditSection={editSection}
+            onReorderSections={reorderSections}
           />
         )}
       </main>

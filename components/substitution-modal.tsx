@@ -36,9 +36,13 @@ interface SubstitutionManagerProps {
     sectionId: string,
     originalTeacherCode: string,
     substituteTeacherCode: string,
-    reason?: string
+    reason?: string,
   ) => void;
-  onRevertSubstitution: (dayName: string, periodIndex: number, sectionId: string) => void;
+  onRevertSubstitution: (
+    dayName: string,
+    periodIndex: number,
+    sectionId: string,
+  ) => void;
 }
 
 export function SubstitutionManager({
@@ -48,28 +52,41 @@ export function SubstitutionManager({
   onApplySubstitution,
   onRevertSubstitution,
 }: SubstitutionManagerProps) {
-  const [selectedDay, setSelectedDay] = React.useState<string>(currentDay || getTodaysWeekday());
+  const [prevCurrentDay, setPrevCurrentDay] = React.useState<string>(currentDay);
+  const [selectedDay, setSelectedDay] = React.useState<string>(
+    currentDay || getTodaysWeekday(),
+  );
 
-  React.useEffect(() => {
-    if (currentDay) {
-      setSelectedDay(currentDay);
-    }
-  }, [currentDay]);
-  const [absentTeacherCodes, setAbsentTeacherCodes] = React.useState<string[]>(["AA"]);
-  const [teacherAbsencePeriods, setTeacherAbsencePeriods] = React.useState<Record<string, number[]>>({});
-  const [allowedReplacementCodes, setAllowedReplacementCodes] = React.useState<string[]>([]);
+  if (currentDay && currentDay !== prevCurrentDay) {
+    setPrevCurrentDay(currentDay);
+    setSelectedDay(currentDay);
+  }
+  const [absentTeacherCodes, setAbsentTeacherCodes] = React.useState<string[]>(
+    [],
+  );
+  const [teacherAbsencePeriods, setTeacherAbsencePeriods] = React.useState<
+    Record<string, number[]>
+  >({});
+  const [allowedReplacementCodes, setAllowedReplacementCodes] = React.useState<
+    string[]
+  >([]);
   const [useCustomPool, setUseCustomPool] = React.useState<boolean>(false);
   const [maxDailyLoad, setMaxDailyLoad] = React.useState<number>(5);
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [selectedDeptFilter, setSelectedDeptFilter] = React.useState<string>("All");
+  const [selectedDeptFilter, setSelectedDeptFilter] =
+    React.useState<string>("All");
 
   // Local manual overrides for any requirement: requirementId -> selected candidate code
-  const [manualAssignments, setManualAssignments] = React.useState<Record<string, string>>({});
+  const [manualAssignments, setManualAssignments] = React.useState<
+    Record<string, string>
+  >({});
 
   const teacherDir = teachers || TEACHER_DIRECTORY;
 
   const allTeachersList: TeacherInfo[] = React.useMemo(() => {
-    return Object.values(teacherDir).sort((a, b) => a.code.localeCompare(b.code));
+    return Object.values(teacherDir).sort((a, b) =>
+      a.code.localeCompare(b.code),
+    );
   }, [teacherDir]);
 
   const departmentsList = React.useMemo(() => {
@@ -130,7 +147,7 @@ export function SubstitutionManager({
   // Toggle replacement candidate in custom pool
   const handleToggleReplacementPool = (code: string) => {
     setAllowedReplacementCodes((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
     );
   };
 
@@ -141,7 +158,9 @@ export function SubstitutionManager({
       dayName: selectedDay,
       absentTeacherCodes,
       teacherAbsencePeriods,
-      allowedReplacementCodes: useCustomPool ? allowedReplacementCodes : undefined,
+      allowedReplacementCodes: useCustomPool
+        ? allowedReplacementCodes
+        : undefined,
       routineData,
       maxDailyLoad,
       teachersDirectory: teacherDir,
@@ -201,7 +220,7 @@ export function SubstitutionManager({
           req.sectionId,
           req.originalTeacher.code,
           assignedCode,
-          undefined
+          undefined,
         );
       }
     });
@@ -221,40 +240,37 @@ export function SubstitutionManager({
       t.dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.subject.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesDept = selectedDeptFilter === "All" || t.dept === selectedDeptFilter;
+    const matchesDept =
+      selectedDeptFilter === "All" || t.dept === selectedDeptFilter;
     return matchesSearch && matchesDept;
   });
 
   return (
     <div className="space-y-6">
-      {/* 1. Multi-Absent & Target Pool Control Center */}
-      <div className="p-6 rounded-3xl bg-card border border-border shadow-xs space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
+      <div className="p-4 sm:p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4 sm:space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
           <div>
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-danger-bg text-danger">
                 <UserX className="w-5 h-5" />
               </div>
               <h2 className="font-bold text-lg text-foreground tracking-tight">
-                Multi-Teacher Auto-Replacement Engine
+                Multi-Teacher Auto-Replacement
               </h2>
             </div>
-            <p className="text-xs text-foreground-muted mt-1">
-              Select multiple absent teachers and replacement candidates. The system checks which teachers
-              take the selected classes, evaluates current and projected daily workloads, and assigns replacements
-              without overloading any faculty member.
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             {requirements.length > 0 && (
               <button
                 type="button"
                 onClick={handleAutoAssignAll}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>Auto-Assign All {requirements.length} Classes (Balanced)</span>
+                <span>
+                  Auto-Assign All {requirements.length} Classes
+                </span>
               </button>
             )}
           </div>
@@ -263,7 +279,9 @@ export function SubstitutionManager({
         {/* Day, Max Workload, and Pool Mode Controls */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
-            <label className="font-semibold text-foreground block mb-1.5">Day of Routine</label>
+            <label className="font-semibold text-foreground block mb-1.5">
+              Day of Routine
+            </label>
             <select
               value={selectedDay}
               onChange={(e) => {
@@ -283,7 +301,9 @@ export function SubstitutionManager({
           <div>
             <label className="font-semibold text-foreground block mb-1.5 flex items-center justify-between">
               <span>Max Daily Workload</span>
-              <span className="text-foreground-muted text-[11px]">Guard against overload</span>
+              <span className="text-foreground-muted text-[11px]">
+                Guard against overload
+              </span>
             </label>
             <select
               value={maxDailyLoad}
@@ -291,15 +311,21 @@ export function SubstitutionManager({
               className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
             >
               <option value={4}>Max 4 periods/day (Strict light load)</option>
-              <option value={5}>Max 5 periods/day (Standard recommended)</option>
-              <option value={6}>Max 6 periods/day (Heavy load permitted)</option>
+              <option value={5}>
+                Max 5 periods/day (Standard recommended)
+              </option>
+              <option value={6}>
+                Max 6 periods/day (Heavy load permitted)
+              </option>
             </select>
           </div>
 
           <div>
             <label className="font-semibold text-foreground block mb-1.5 flex items-center justify-between">
               <span>Replacement Faculty Pool</span>
-              <span className="text-foreground-muted text-[11px]">Eligible substitutes</span>
+              <span className="text-foreground-muted text-[11px]">
+                Eligible substitutes
+              </span>
             </label>
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -333,7 +359,9 @@ export function SubstitutionManager({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
               <UserX className="w-4 h-4 text-red-500" />
-              <span>Select Absent Teachers ({absentTeacherCodes.length} selected):</span>
+              <span>
+                Select Absent Teachers ({absentTeacherCodes.length} selected):
+              </span>
             </span>
 
             {/* Quick search & department filter */}
@@ -383,7 +411,9 @@ export function SubstitutionManager({
                 {absentTeacherCodes.map((code) => {
                   const t = teacherDir[code] || TEACHER_DIRECTORY[code];
                   const isFull = isTeacherFullDay(code);
-                  const absentPeriods = teacherAbsencePeriods[code] ?? [0, 1, 2, 3, 4, 5, 6];
+                  const absentPeriods = teacherAbsencePeriods[code] ?? [
+                    0, 1, 2, 3, 4, 5, 6,
+                  ];
 
                   return (
                     <div
@@ -402,25 +432,31 @@ export function SubstitutionManager({
                           )}
                           <span className="text-[11px] font-semibold text-foreground-muted">
                             {isFull ? (
-                              <span className="text-red-500 font-bold">Full Day Absent</span>
+                              <span className="text-red-500 font-bold">
+                                Full Day Absent
+                              </span>
                             ) : absentPeriods.length === 0 ? (
-                              <span className="text-emerald-500 font-medium">Present All Periods</span>
+                              <span className="text-emerald-500 font-medium">
+                                Present All Periods
+                              </span>
                             ) : (
                               <span>
-                                Absent in {absentPeriods.length} period{absentPeriods.length > 1 ? "s" : ""}
+                                Absent in {absentPeriods.length} period
+                                {absentPeriods.length > 1 ? "s" : ""}
                               </span>
                             )}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          {/* Full Day toggle button */}
                           <button
                             type="button"
                             onClick={() => {
                               if (isFull) {
-                                // Switch to specific periods: initially period 1 (index 0)
-                                setTeacherAbsencePeriods((prev) => ({ ...prev, [code]: [0] }));
+                                setTeacherAbsencePeriods((prev) => ({
+                                  ...prev,
+                                  [code]: [0],
+                                }));
                               } else {
                                 setTeacherFullDayAbsent(code);
                               }
@@ -448,7 +484,9 @@ export function SubstitutionManager({
                       {/* Period selector: P1 through P7 */}
                       <div className="flex items-center gap-1.5 flex-wrap pt-0.5 border-t border-border/50">
                         <span className="text-[10px] font-semibold text-foreground-subtle mr-0.5">
-                          {isFull ? "All Periods Absent:" : "Select Absent Periods:"}
+                          {isFull
+                            ? "All Periods Absent:"
+                            : "Select Absent Periods:"}
                         </span>
                         {[0, 1, 2, 3, 4, 5, 6].map((pIdx) => {
                           const isPeriodAbsent = absentPeriods.includes(pIdx);
@@ -456,14 +494,18 @@ export function SubstitutionManager({
                             <button
                               key={pIdx}
                               type="button"
-                              onClick={() => toggleTeacherPeriodAbsence(code, pIdx)}
+                              onClick={() =>
+                                toggleTeacherPeriodAbsence(code, pIdx)
+                              }
                               className={`px-2 py-0.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
                                 isPeriodAbsent
                                   ? "bg-red-500 text-white shadow-2xs font-bold"
                                   : "bg-background-secondary text-foreground-muted hover:bg-secondary hover:text-foreground border border-border"
                               }`}
                               title={`Period ${pIdx + 1}: ${
-                                isPeriodAbsent ? "Absent (needs sub)" : "Present (available)"
+                                isPeriodAbsent
+                                  ? "Absent (needs sub)"
+                                  : "Present (available)"
                               }`}
                             >
                               P{pIdx + 1}
@@ -478,7 +520,8 @@ export function SubstitutionManager({
             </div>
           ) : (
             <p className="text-xs text-foreground-muted italic">
-              No absent teachers selected. Click any teacher below to mark absent (full day or specific periods).
+              No absent teachers selected. Click any teacher below to mark
+              absent (full day or specific periods).
             </p>
           )}
 
@@ -499,9 +542,7 @@ export function SubstitutionManager({
                   title={`${t.code} • ${t.dept} • ${t.subject}`}
                 >
                   <span className="font-mono font-bold">{t.code}</span>
-                  <span className="text-[10px] opacity-75">
-                    ({t.dept})
-                  </span>
+                  <span className="text-[10px] opacity-75">({t.dept})</span>
                 </button>
               );
             })}
@@ -514,7 +555,10 @@ export function SubstitutionManager({
             <div className="flex items-center justify-between">
               <span className="font-bold text-foreground flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-primary" />
-                <span>Selected Replacement Pool ({allowedReplacementCodes.length} faculty):</span>
+                <span>
+                  Selected Replacement Pool ({allowedReplacementCodes.length}{" "}
+                  faculty):
+                </span>
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -523,7 +567,7 @@ export function SubstitutionManager({
                     setAllowedReplacementCodes(
                       allTeachersList
                         .filter((t) => !absentTeacherCodes.includes(t.code))
-                        .map((t) => t.code)
+                        .map((t) => t.code),
                     )
                   }
                   className="px-2 py-0.5 rounded bg-card border border-border text-foreground hover:bg-secondary cursor-pointer"
@@ -572,11 +616,13 @@ export function SubstitutionManager({
             <h3 className="font-bold text-base text-foreground flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-primary" />
               <span>
-                Calculated Assignment Plan ({requirements.length} periods need substitution)
+                Calculated Assignment Plan ({requirements.length} periods need
+                substitution)
               </span>
             </h3>
             <p className="text-xs text-foreground-muted">
-              Ranked by class experience, subject/dept match, and non-overloaded daily workloads.
+              Ranked by class experience, subject/dept match, and non-overloaded
+              daily workloads.
             </p>
           </div>
 
@@ -595,12 +641,14 @@ export function SubstitutionManager({
         {requirements.length === 0 ? (
           <div className="p-8 text-center rounded-3xl bg-card border border-border space-y-2">
             <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
-            <h4 className="font-bold text-sm text-foreground">No Substitutions Needed</h4>
+            <h4 className="font-bold text-sm text-foreground">
+              No Substitutions Needed
+            </h4>
             <p className="text-xs text-foreground-muted max-w-md mx-auto">
               {absentTeacherCodes.length === 0
                 ? "Select one or more absent teachers above to compute required substitutions."
                 : `The selected teacher(s) (${absentTeacherCodes.join(
-                    ", "
+                    ", ",
                   )}) have no classes requiring substitution on ${selectedDay}.`}
             </p>
           </div>
@@ -608,9 +656,10 @@ export function SubstitutionManager({
           <div className="space-y-3">
             {requirements.map((req) => {
               const currentAssignedCode =
-                manualAssignments[req.id] || req.recommendedCandidate?.teacher.code;
+                manualAssignments[req.id] ||
+                req.recommendedCandidate?.teacher.code;
               const selectedCandidate = req.candidates.find(
-                (c) => c.teacher.code === currentAssignedCode
+                (c) => c.teacher.code === currentAssignedCode,
               );
 
               return (
@@ -630,7 +679,9 @@ export function SubstitutionManager({
                     </div>
 
                     <div className="flex items-center gap-2 text-foreground-muted flex-wrap">
-                      <span className="font-semibold text-foreground">{req.subject}</span>
+                      <span className="font-semibold text-foreground">
+                        {req.subject}
+                      </span>
                       <span>•</span>
                       <span>
                         Absent:{" "}
@@ -640,19 +691,23 @@ export function SubstitutionManager({
                       </span>
                     </div>
 
-                    {req.isAlreadySubstituted && req.activeSubstituteTeacher && (
-                      <div className="flex items-center gap-1.5 pt-0.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30 text-[10px]">
-                          Currently Substituted by: {req.activeSubstituteTeacher.code}
-                        </span>
-                      </div>
-                    )}
+                    {req.isAlreadySubstituted &&
+                      req.activeSubstituteTeacher && (
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/30 text-[10px]">
+                            Currently Substituted by:{" "}
+                            {req.activeSubstituteTeacher.code}
+                          </span>
+                        </div>
+                      )}
                   </div>
 
                   {/* Center: Match Details & Workload Protection Status */}
                   <div className="flex-1 space-y-1 md:px-4 border-y md:border-y-0 md:border-x border-border/60 py-2 md:py-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-foreground-muted text-[11px]">Assigned:</span>
+                      <span className="text-foreground-muted text-[11px]">
+                        Assigned:
+                      </span>
                       {selectedCandidate ? (
                         <>
                           <span className="font-bold text-foreground font-mono">
@@ -665,8 +720,8 @@ export function SubstitutionManager({
                               selectedCandidate.takesThisClass
                                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                                 : selectedCandidate.isSameDept
-                                ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30"
-                                : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30"
+                                  ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30"
+                                  : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30"
                             }`}
                           >
                             {selectedCandidate.matchReasons[0] || "Available"}
@@ -694,11 +749,13 @@ export function SubstitutionManager({
                       )}
                     </div>
 
-                    {selectedCandidate && selectedCandidate.matchReasons.length > 1 && (
-                      <p className="text-[11px] text-foreground-muted">
-                        Rationale: {selectedCandidate.matchReasons.slice(1).join(" • ")}
-                      </p>
-                    )}
+                    {selectedCandidate &&
+                      selectedCandidate.matchReasons.length > 1 && (
+                        <p className="text-[11px] text-foreground-muted">
+                          Rationale:{" "}
+                          {selectedCandidate.matchReasons.slice(1).join(" • ")}
+                        </p>
+                      )}
                   </div>
 
                   {/* Right: Override Dropdown & Quick Assign / Revert Button */}
@@ -708,7 +765,11 @@ export function SubstitutionManager({
                       <button
                         type="button"
                         onClick={() =>
-                          onRevertSubstitution(selectedDay, req.periodIndex, req.sectionId)
+                          onRevertSubstitution(
+                            selectedDay,
+                            req.periodIndex,
+                            req.sectionId,
+                          )
                         }
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-colors cursor-pointer whitespace-nowrap"
                         title={`Revert back to original teacher ${req.originalTeacher.code}`}
@@ -731,8 +792,12 @@ export function SubstitutionManager({
                         className="pl-2.5 pr-8 py-1.5 text-xs rounded-xl bg-background-secondary border border-border text-foreground font-medium outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none"
                       >
                         {req.candidates.map((cand) => (
-                          <option key={cand.teacher.code} value={cand.teacher.code}>
-                            {cand.teacher.code} ({cand.teacher.dept}) • Load: {cand.currentDayLoad}
+                          <option
+                            key={cand.teacher.code}
+                            value={cand.teacher.code}
+                          >
+                            {cand.teacher.code} ({cand.teacher.dept}) • Load:{" "}
+                            {cand.currentDayLoad}
                           </option>
                         ))}
                       </select>
@@ -749,7 +814,7 @@ export function SubstitutionManager({
                             req.sectionId,
                             req.originalTeacher.code,
                             currentAssignedCode,
-                            undefined
+                            undefined,
                           );
                         }
                       }}
@@ -757,7 +822,9 @@ export function SubstitutionManager({
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>{req.isAlreadySubstituted ? "Update Sub" : "Assign"}</span>
+                      <span>
+                        {req.isAlreadySubstituted ? "Update Sub" : "Assign"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -774,7 +841,8 @@ export function SubstitutionManager({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
               <h3 className="font-bold text-sm text-foreground">
-                Active Applied Substitutions on {selectedDay} ({activeSubstitutions.length})
+                Active Applied Substitutions on {selectedDay} (
+                {activeSubstitutions.length})
               </h3>
             </div>
 
@@ -800,11 +868,16 @@ export function SubstitutionManager({
                       {sub.sectionId}
                     </span>
                     <span>Period {sub.periodIndex + 1}</span>
-                    <span className="text-foreground-muted">• {sub.subject}</span>
+                    <span className="text-foreground-muted">
+                      • {sub.subject}
+                    </span>
                   </div>
                   <div className="text-[11px] text-foreground-muted mt-0.5">
-                    Original: <span className="line-through">{sub.originalTeacherCode}</span> →{" "}
-                    Sub:{" "}
+                    Original:{" "}
+                    <span className="line-through">
+                      {sub.originalTeacherCode}
+                    </span>{" "}
+                    → Sub:{" "}
                     <span className="font-bold text-purple-600 dark:text-purple-400">
                       {sub.substituteTeacherCode}
                     </span>
@@ -814,7 +887,11 @@ export function SubstitutionManager({
                 <button
                   type="button"
                   onClick={() =>
-                    onRevertSubstitution(selectedDay, sub.periodIndex, sub.sectionId)
+                    onRevertSubstitution(
+                      selectedDay,
+                      sub.periodIndex,
+                      sub.sectionId,
+                    )
                   }
                   className="p-1 rounded-lg text-foreground-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
                   title="Revert this substitution"

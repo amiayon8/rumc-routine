@@ -8,13 +8,26 @@ import {
   getTodaysFullDate,
   TEACHER_DIRECTORY,
   TeacherInfo,
+  RoutineCell,
 } from "../lib/routine-data";
-import { Printer, User, GraduationCap, Award } from "lucide-react";
+import { Printer, User, GraduationCap, Award, X } from "lucide-react";
 
 interface IndividualRoutineViewProps {
   routineData: DayRoutine[];
   timings?: PeriodTiming[];
   teachers?: Record<string, TeacherInfo>;
+  onUpdateCell?: (
+    day: string,
+    sectionId: string,
+    periodIndex: number,
+    cell: RoutineCell | null,
+  ) => void;
+  onToggleSectionStatus?: (
+    day: string,
+    sectionId: string,
+    isActive: boolean,
+    reason?: string,
+  ) => void;
 }
 
 type Mode = "teacher" | "section";
@@ -31,8 +44,16 @@ export function IndividualRoutineView({
   routineData,
   timings = DEFAULT_PERIOD_TIMINGS,
   teachers,
+  onUpdateCell,
+  onToggleSectionStatus,
 }: IndividualRoutineViewProps) {
   const [mode, setMode] = React.useState<Mode>("teacher");
+  const [editingCell, setEditingCell] = React.useState<{
+    day: string;
+    sectionId: string;
+    periodIndex: number;
+    cell: RoutineCell | null;
+  } | null>(null);
 
   // Period timing lookup helper
   const getPeriodTime = (index: number, fallback: string) => {
@@ -246,27 +267,25 @@ export function IndividualRoutineView({
 
   return (
     <div className="space-y-6">
-      {/* 1. TOP CONTROLS & GENERATOR HEADER (Hidden in Print) */}
       <div className="no-print p-4 sm:p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Award className="w-5 h-5 text-primary" />
-              <span>Routine Generator & Print Studio</span>
+              <span>Routine Generator &amp; Print Studio</span>
             </h2>
             <p className="text-xs text-foreground-muted">
               Generate official, formatted 5-day routines for individual
-              teachers or specific classes & sections.
+              teachers or specific classes &amp; sections.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-stretch sm:self-auto">
-            {/* Mode Switcher */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch sm:self-auto w-full sm:w-auto">
             <div className="flex items-center p-1 rounded-2xl bg-background-secondary border border-border">
               <button
                 type="button"
                 onClick={() => setMode("teacher")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
                   mode === "teacher"
                     ? "bg-card text-primary shadow-xs border border-border/80"
                     : "text-foreground-muted hover:text-foreground"
@@ -278,22 +297,21 @@ export function IndividualRoutineView({
               <button
                 type="button"
                 onClick={() => setMode("section")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
                   mode === "section"
                     ? "bg-card text-primary shadow-xs border border-border/80"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5" />
-                <span>Class / Section Routine</span>
+                <span>Class Routine</span>
               </button>
             </div>
 
-            {/* Print Button */}
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
               title="Print official routine on A4 (Ctrl+P)"
             >
               <Printer className="w-4 h-4" />
@@ -401,7 +419,7 @@ export function IndividualRoutineView({
              OFFICIAL INDIVIDUAL TEACHER ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
              ========================================================================= */
           <div
-            className="routine-sheet p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
+            className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
             style={{
               fontFamily: "'Times New Roman', Times, serif",
               color: "#000000",
@@ -414,7 +432,7 @@ export function IndividualRoutineView({
                 WEF: {getTodaysFullDate()}
               </span>
               <span className="text-zinc-600 text-[10px] uppercase font-semibold">
-                Morning Shift • EMMS
+                EMMS
               </span>
             </div>
 
@@ -456,7 +474,7 @@ export function IndividualRoutineView({
               }}
             >
               <div>
-                <span className="font-bold">Teacher Code: </span>
+                <span className="font-bold">Teacher Acronym: </span>
                 <span className="font-bold text-black uppercase">
                   {selectedTeacher.code}
                 </span>
@@ -643,7 +661,28 @@ export function IndividualRoutineView({
                       return (
                         <td
                           key={periodIdx}
-                          className="p-1.5 text-center"
+                          onClick={() => {
+                            if (!onUpdateCell || !classes[0]) return;
+                            const dayRoutine = routineData.find(
+                              (d) => d.day === dayName,
+                            );
+                            const sec = dayRoutine?.sections.find(
+                              (s) => s.sectionId === classes[0].sectionId,
+                            );
+                            const targetCell = sec?.periods[periodIdx] || null;
+                            setEditingCell({
+                              day: dayName,
+                              sectionId: classes[0].sectionId,
+                              periodIndex: periodIdx,
+                              cell: targetCell,
+                            });
+                          }}
+                          className={`p-1.5 text-center ${onUpdateCell ? "cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset transition-shadow" : ""}`}
+                          title={
+                            onUpdateCell
+                              ? "Click to edit period details"
+                              : undefined
+                          }
                           style={{
                             border: "1px solid #000000",
                             backgroundColor: classes.some((c) => c.isSub)
@@ -731,22 +770,22 @@ export function IndividualRoutineView({
             </div>
 
             {/* Official Signatures Block (Replica of RUMC PDF Format) */}
-            <div className="mt-12 pt-6 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
+            <div className="mt-auto pt-8 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
                 <div>Teacher&apos;s Signature</div>
               </div>
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
-                <div>Convener, Routine</div>
+                <div>Sign of OIC Routine Comm.</div>
               </div>
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
-                <div>In-Charge (EMMS)</div>
+                <div>Sign of Chairman Routine Comm.</div>
               </div>
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
-                <div>Principal, RUMC</div>
+                <div>Sign of VP (EMMS)</div>
               </div>
             </div>
           </div>
@@ -755,7 +794,7 @@ export function IndividualRoutineView({
              OFFICIAL CLASS & SECTION ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
              ========================================================================= */
           <div
-            className="routine-sheet p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
+            className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
             style={{
               fontFamily: "'Times New Roman', Times, serif",
               color: "#000000",
@@ -768,7 +807,7 @@ export function IndividualRoutineView({
                 WEF: {getTodaysFullDate()}
               </span>
               <span className="text-zinc-600 text-[10px] uppercase font-semibold">
-                Morning Shift • EMMS
+                EMMS
               </span>
             </div>
 
@@ -977,10 +1016,47 @@ export function IndividualRoutineView({
                         return (
                           <td
                             key={periodIdx}
-                            className="p-2 text-center text-[10px] text-rose-700 italic bg-rose-50"
+                            onClick={() => {
+                              if (onToggleSectionStatus) {
+                                const newReason = prompt(
+                                  `Edit close reason for ${secRoutine.sectionId} (${dayName}):`,
+                                  secRoutine.statusReason || "Exam",
+                                );
+                                if (newReason !== null) {
+                                  if (newReason.trim()) {
+                                    onToggleSectionStatus(
+                                      dayName,
+                                      secRoutine.sectionId,
+                                      false,
+                                      newReason.trim(),
+                                    );
+                                  } else {
+                                    onToggleSectionStatus(
+                                      dayName,
+                                      secRoutine.sectionId,
+                                      true,
+                                      "Normal",
+                                    );
+                                  }
+                                }
+                              }
+                            }}
+                            className={`p-1.5 text-center text-rose-700 bg-rose-50 ${onToggleSectionStatus ? "cursor-pointer hover:bg-rose-100 transition-colors" : ""}`}
+                            title={
+                              onToggleSectionStatus
+                                ? "Click to edit close reason or reactivate"
+                                : undefined
+                            }
                             style={{ border: "1px solid #000000" }}
                           >
-                            Suspended
+                            <div className="text-[10px] font-bold uppercase tracking-wide">
+                              Closed
+                            </div>
+                            {secRoutine.statusReason && (
+                              <div className="text-[9px] text-rose-600 font-medium truncate max-w-[85px] mx-auto">
+                                {secRoutine.statusReason}
+                              </div>
+                            )}
                           </td>
                         );
                       }
@@ -990,13 +1066,28 @@ export function IndividualRoutineView({
                         return (
                           <td
                             key={periodIdx}
-                            className="p-2 text-center text-zinc-300 text-[11px]"
+                            onClick={() => {
+                              if (onUpdateCell) {
+                                setEditingCell({
+                                  day: dayName,
+                                  sectionId: selectedSectionId,
+                                  periodIndex: periodIdx,
+                                  cell: null,
+                                });
+                              }
+                            }}
+                            className={`p-2 text-center text-zinc-300 text-[11px] ${onUpdateCell ? "cursor-pointer hover:bg-blue-50/50 hover:ring-2 hover:ring-blue-400 hover:ring-inset transition-all" : ""}`}
+                            title={
+                              onUpdateCell
+                                ? "Click to assign class to this period"
+                                : undefined
+                            }
                             style={{
                               border: "1px solid #000000",
                               backgroundColor: "#FAFAFA",
                             }}
                           >
-                            —
+                            -
                           </td>
                         );
                       }
@@ -1004,7 +1095,22 @@ export function IndividualRoutineView({
                       return (
                         <td
                           key={periodIdx}
-                          className="p-1.5 text-center"
+                          onClick={() => {
+                            if (onUpdateCell) {
+                              setEditingCell({
+                                day: dayName,
+                                sectionId: selectedSectionId,
+                                periodIndex: periodIdx,
+                                cell,
+                              });
+                            }
+                          }}
+                          className={`p-1.5 text-center ${onUpdateCell ? "cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset transition-all" : ""}`}
+                          title={
+                            onUpdateCell
+                              ? "Click to edit period details"
+                              : undefined
+                          }
                           style={{
                             border: "1px solid #000000",
                             backgroundColor: cell.substituteTeacherCode
@@ -1012,20 +1118,20 @@ export function IndividualRoutineView({
                               : "#FFFFFF",
                           }}
                         >
-                          <div className="font-bold text-[13px] text-black leading-tight">
+                          <div className="font-bold text-[14px] text-black leading-tight">
                             {cell.subject}
                           </div>
                           {cell.substituteTeacherCode ? (
                             <div className="mt-0.5">
-                              <div className="text-[11px] font-bold text-purple-900 leading-tight">
+                              <div className="text-[12px] font-bold text-purple-900 leading-tight">
                                 {cell.substituteTeacherCode}
                               </div>
-                              <div className="text-[9px] font-semibold text-purple-700 leading-none mt-0.5">
+                              <div className="text-[10px] font-semibold text-purple-700 leading-none mt-0.5">
                                 (for {cell.teacherCode})
                               </div>
                             </div>
                           ) : (
-                            <div className="text-[11px] font-bold text-blue-900 mt-0.5 leading-tight">
+                            <div className="text-[12px] font-bold text-blue-900 mt-0.5 leading-tight">
                               {cell.teacherCode}
                             </div>
                           )}
@@ -1080,7 +1186,7 @@ export function IndividualRoutineView({
             </div>
 
             {/* Signatures Block */}
-            <div className="mt-12 pt-6 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
+            <div className="mt-auto pt-8 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
                 <div>Class Teacher</div>
@@ -1101,6 +1207,177 @@ export function IndividualRoutineView({
           </div>
         )}
       </div>
+
+      {editingCell && (
+        <div className="no-print fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-bold text-base text-foreground">
+                  Edit Cell: {editingCell.sectionId} • Period{" "}
+                  {editingCell.periodIndex + 1}
+                </h3>
+                <p className="text-xs text-foreground-muted">
+                  Day: {editingCell.day}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingCell(null)}
+                className="p-1.5 rounded-lg hover:bg-secondary text-foreground-muted cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!onUpdateCell) return;
+                const form = e.currentTarget;
+                const subject = (
+                  form.elements.namedItem("subject") as HTMLInputElement
+                ).value.trim();
+                const teacherCode = (
+                  form.elements.namedItem("teacherCode") as HTMLInputElement
+                ).value.trim();
+                const room = (
+                  form.elements.namedItem("room") as HTMLInputElement
+                ).value.trim();
+
+                if (!subject || !teacherCode) {
+                  onUpdateCell(
+                    editingCell.day,
+                    editingCell.sectionId,
+                    editingCell.periodIndex,
+                    null,
+                  );
+                } else {
+                  onUpdateCell(
+                    editingCell.day,
+                    editingCell.sectionId,
+                    editingCell.periodIndex,
+                    {
+                      subject,
+                      teacherCode,
+                      room: room || editingCell.cell?.room || undefined,
+                      substituteTeacherCode:
+                        editingCell.cell?.substituteTeacherCode,
+                      substituteReason: editingCell.cell?.substituteReason,
+                    },
+                  );
+                }
+                setEditingCell(null);
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div>
+                <label className="font-medium text-foreground block mb-1">
+                  Subject Name
+                </label>
+                <input
+                  name="subject"
+                  defaultValue={editingCell.cell?.subject || ""}
+                  placeholder="e.g. Physics, Higher Math, ICT"
+                  className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div>
+                <label className="font-medium text-foreground block mb-1">
+                  Teacher Acronym
+                </label>
+                <input
+                  name="teacherCode"
+                  defaultValue={editingCell.cell?.teacherCode || ""}
+                  placeholder="e.g. NC"
+                  className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 uppercase font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-medium text-foreground block mb-1">
+                  Room (Optional)
+                </label>
+                <input
+                  name="room"
+                  defaultValue={editingCell.cell?.room || ""}
+                  placeholder="e.g. 201, Lab 2"
+                  className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {editingCell.cell?.substituteTeacherCode && (
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-purple-700 dark:text-purple-300">
+                      Sub: {editingCell.cell.substituteTeacherCode}
+                    </span>
+                    <span className="text-foreground-muted ml-1">
+                      (for {editingCell.cell.teacherCode})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!onUpdateCell) return;
+                      onUpdateCell(
+                        editingCell.day,
+                        editingCell.sectionId,
+                        editingCell.periodIndex,
+                        {
+                          ...editingCell.cell!,
+                          substituteTeacherCode: undefined,
+                          substituteReason: undefined,
+                        },
+                      );
+                      setEditingCell(null);
+                    }}
+                    className="px-2 py-1 text-[11px] font-semibold text-danger hover:bg-danger-bg rounded-lg transition-colors cursor-pointer"
+                  >
+                    Remove Sub
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onUpdateCell) {
+                      onUpdateCell(
+                        editingCell.day,
+                        editingCell.sectionId,
+                        editingCell.periodIndex,
+                        null,
+                      );
+                    }
+                    setEditingCell(null);
+                  }}
+                  className="px-3 py-1.5 text-xs text-danger hover:bg-danger-bg rounded-xl transition-colors cursor-pointer"
+                >
+                  Clear Period (Free)
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCell(null)}
+                    className="px-3 py-1.5 text-xs rounded-xl bg-secondary text-foreground hover:bg-muted cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

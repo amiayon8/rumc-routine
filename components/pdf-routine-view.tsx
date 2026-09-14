@@ -38,7 +38,7 @@ interface PdfRoutineViewProps {
     day: string,
     sectionId: string,
     periodIndex: number,
-    cell: RoutineCell | null
+    cell: RoutineCell | null,
   ) => void;
   onUpdateTimings?: (newTimings: PeriodTiming[]) => void;
   onResetTimings?: () => void;
@@ -46,28 +46,39 @@ interface PdfRoutineViewProps {
     dayName: string,
     sectionId: string,
     isActive: boolean,
-    reason?: string
+    reason?: string,
   ) => void;
   onResetAll: () => void;
   onExportJSON: () => void;
   onImportJSON: (jsonStr: string) => boolean;
   onOpenSubstitution?: (day: string) => void;
   onOpenClassStatus?: () => void;
-  onAddSection?: (section: { sectionId: string; className: string; sectionName?: string }) => boolean;
+  onAddSection?: (section: {
+    sectionId: string;
+    className: string;
+    sectionName?: string;
+  }) => boolean;
   onRemoveSection?: (sectionId: string) => void;
   onEditSection?: (
     oldSectionId: string,
-    updated: { sectionId: string; className: string; sectionName?: string }
+    updated: { sectionId: string; className: string; sectionName?: string },
   ) => boolean;
   onReorderSections?: (orderedSectionIds: string[]) => void;
   teachers?: Record<string, TeacherInfo>;
-  onAddTeacher?: (teacher: { code: string; dept: string; subject: string }) => boolean;
+  onAddTeacher?: (teacher: {
+    code: string;
+    dept: string;
+    subject: string;
+  }) => boolean;
   onRemoveTeacher?: (code: string) => void;
   onEditTeacher?: (
     oldCode: string,
-    updated: { code: string; dept: string; subject: string }
+    updated: { code: string; dept: string; subject: string },
   ) => boolean;
   onResetTeachers?: () => void;
+  onAddClass?: (className: string, initialSectionName?: string) => boolean;
+  onRenameClass?: (oldClassName: string, newClassName: string) => boolean;
+  onDeleteClass?: (className: string) => void;
 }
 
 export function PdfRoutineView({
@@ -82,12 +93,13 @@ export function PdfRoutineView({
   onResetAll,
   onExportJSON,
   onImportJSON,
-  onOpenSubstitution,
-  onOpenClassStatus,
   onAddSection,
   onRemoveSection,
   onEditSection,
   onReorderSections,
+  onAddClass,
+  onRenameClass,
+  onDeleteClass,
   teachers,
   onAddTeacher,
   onRemoveTeacher,
@@ -96,9 +108,12 @@ export function PdfRoutineView({
 }: PdfRoutineViewProps) {
   const [printAllDays, setPrintAllDays] = React.useState<boolean>(false);
   const [searchFilter, setSearchFilter] = React.useState<string>("");
-  const [isTimingModalOpen, setIsTimingModalOpen] = React.useState<boolean>(false);
-  const [isClassModalOpen, setIsClassModalOpen] = React.useState<boolean>(false);
-  const [isTeacherModalOpen, setIsTeacherModalOpen] = React.useState<boolean>(false);
+  const [isTimingModalOpen, setIsTimingModalOpen] =
+    React.useState<boolean>(false);
+  const [isClassModalOpen, setIsClassModalOpen] =
+    React.useState<boolean>(false);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] =
+    React.useState<boolean>(false);
   const [editingCell, setEditingCell] = React.useState<{
     day: string;
     sectionId: string;
@@ -113,7 +128,10 @@ export function PdfRoutineView({
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+      if (
+        toolsRef.current &&
+        !toolsRef.current.contains(event.target as Node)
+      ) {
         setIsToolsOpen(false);
       }
     };
@@ -123,8 +141,12 @@ export function PdfRoutineView({
     };
   }, []);
 
-  const sortedRoutines = React.useMemo(() => sortDaysCanonical(routineData), [routineData]);
-  const activeDayRoutine = sortedRoutines.find((d) => d.day === currentDay) || sortedRoutines[0];
+  const sortedRoutines = React.useMemo(
+    () => sortDaysCanonical(routineData),
+    [routineData],
+  );
+  const activeDayRoutine =
+    sortedRoutines.find((d) => d.day === currentDay) || sortedRoutines[0];
   const daysList = sortedRoutines.map((d) => d.day);
 
   const handlePrint = (allDays: boolean) => {
@@ -163,7 +185,7 @@ export function PdfRoutineView({
     cell: RoutineCell | null,
     periodIndex: number,
     sectionId: string,
-    day: string
+    day: string,
   ) => {
     const isHighlighted =
       searchFilter.trim() !== "" &&
@@ -200,24 +222,29 @@ export function PdfRoutineView({
         }}
       >
         {cell ? (
-          <div className="cell-content leading-tight text-[11px]">
+          <div className="cell-content leading-tight text-[13.5px]">
             {cell.substituteTeacherCode ? (
               <>
                 <div className="leading-tight">
-                  <span className="font-semibold text-black">{cell.subject}</span>
+                  <span className="font-semibold text-black">
+                    {cell.subject}
+                  </span>
                   <span className="text-black font-medium"> - </span>
                   <span className="font-bold text-purple-900">
                     {cell.substituteTeacherCode}
                   </span>
                 </div>
-                <div className="sub-indicator text-[9px] font-semibold text-purple-700 leading-none mt-0.5">
+                <div className="sub-indicator text-[11px] font-semibold text-purple-700 leading-none mt-0.5">
                   (for {cell.teacherCode})
                 </div>
               </>
             ) : (
               <div className="leading-tight">
                 <span className="font-semibold text-black">{cell.subject}</span>
-                <span className="text-black font-medium"> - {cell.teacherCode}</span>
+                <span className="text-black font-medium">
+                  {" "}
+                  - {cell.teacherCode}
+                </span>
               </div>
             )}
           </div>
@@ -230,8 +257,8 @@ export function PdfRoutineView({
 
   return (
     <div className="space-y-6">
-      <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+      <div className="no-print flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-card border border-border shadow-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:pb-0 -mx-1 px-1">
           {daysList.map((day) => {
             const isSelected = day === currentDay;
             return (
@@ -242,7 +269,7 @@ export function PdfRoutineView({
                   setPrintAllDays(false);
                   onSelectDay(day);
                 }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   isSelected
                     ? "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/20"
                     : "bg-background-secondary text-foreground-muted hover:text-foreground hover:bg-muted"
@@ -254,22 +281,22 @@ export function PdfRoutineView({
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="relative flex-1 sm:flex-none sm:w-48">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground-subtle" />
             <input
               type="text"
               placeholder="Search teacher or subject..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-xs rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 w-40 sm:w-48"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <button
             type="button"
             onClick={() => handlePrint(false)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer shrink-0"
             title="Print or save current day routine as PDF"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -279,18 +306,19 @@ export function PdfRoutineView({
           <button
             type="button"
             onClick={() => handlePrint(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer shrink-0"
             title="Print all 5 days"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
-            <span>All 5 Days</span>
+            <span className="hidden sm:inline">All 5 Days</span>
+            <span className="sm:hidden">All</span>
           </button>
 
           <div className="relative" ref={toolsRef}>
             <button
               type="button"
               onClick={() => setIsToolsOpen((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors shadow-xs cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors shadow-xs cursor-pointer shrink-0 ${
                 isToolsOpen
                   ? "bg-secondary text-foreground border-primary/40 ring-2 ring-primary/10"
                   : "bg-card hover:bg-secondary border-border text-foreground"
@@ -322,19 +350,22 @@ export function PdfRoutineView({
                   </button>
                 )}
 
-                {teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsToolsOpen(false);
-                      setIsTeacherModalOpen(true);
-                    }}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
-                  >
-                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Manage Faculty</span>
-                  </button>
-                )}
+                {teachers &&
+                  onAddTeacher &&
+                  onRemoveTeacher &&
+                  onEditTeacher && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsToolsOpen(false);
+                        setIsTeacherModalOpen(true);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                    >
+                      <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Manage Faculty</span>
+                    </button>
+                  )}
 
                 {onUpdateTimings && (
                   <button
@@ -382,7 +413,11 @@ export function PdfRoutineView({
                   type="button"
                   onClick={() => {
                     setIsToolsOpen(false);
-                    if (confirm("Reset routine to original 13 Sep 2026 PDF defaults?")) {
+                    if (
+                      confirm(
+                        "Reset routine to original 13 Sep 2026 PDF defaults?",
+                      )
+                    ) {
                       onResetAll();
                     }
                   }}
@@ -410,69 +445,72 @@ export function PdfRoutineView({
         {displayedDays.map((dayRoutine) => (
           <div
             key={dayRoutine.day}
-            className="routine-sheet p-3 sm:p-5 print:p-0 bg-white border border-border shadow-xs text-black transition-colors"
+            className="routine-sheet min-h-[297mm] flex flex-col justify-between p-3 sm:p-5 print:p-0 bg-white border border-border shadow-xs text-black transition-colors"
             style={{
               fontFamily: "'Times New Roman', Times, serif",
               color: "#000000",
               backgroundColor: "#ffffff",
             }}
           >
-            {/* College Header Banner - Exact replica of 13 Sep 2026 PDF */}
-            <div className="college-header-banner text-center pb-1 relative">
-              {/* Top line: WEF in RED (#FF0000) and Shift name */}
-              <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wide">
-                <span style={{ color: "#FF0000" }}>WEF: {getTodaysFullDate()}</span>
-                <span className="text-zinc-600 text-[10px] uppercase font-semibold">
-                  Morning Shift • EMMS
-                </span>
+            <div className="flex-1 flex flex-col">
+              <div className="college-header-banner text-center pb-1 relative">
+                <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wide">
+                  <span style={{ color: "#FF0000" }}>
+                    WEF: {getTodaysFullDate()}
+                  </span>
+                  <span className="text-zinc-600 text-[10px] uppercase font-semibold">
+                    EMMS
+                  </span>
+                </div>
+
+                <div className="mt-0.5 space-y-0.5">
+                  <h1
+                    className="text-base sm:text-lg lg:text-xl font-bold tracking-wide uppercase text-black"
+                    style={{
+                      fontFamily: "'Times New Roman', Times, serif",
+                      fontWeight: 700,
+                    }}
+                  >
+                    RAJUK UTTARA MODEL COLLEGE
+                  </h1>
+                  <h2
+                    className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-black"
+                    style={{
+                      fontFamily: "'Times New Roman', Times, serif",
+                      fontWeight: 700,
+                    }}
+                  >
+                    DAYWISE CLASS ROUTINE-2026
+                  </h2>
+                  <h3
+                    className="text-[10px] sm:text-[11px] font-bold tracking-wide uppercase"
+                    style={{
+                      color: "#00B050",
+                      fontFamily: "'Times New Roman', Times, serif",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ENGLISH MEDIUM-MORNING SHIFT
+                  </h3>
+                </div>
               </div>
 
-              {/* Header Titles */}
-              <div className="mt-0.5 space-y-0.5">
-                <h1
-                  className="text-base sm:text-lg lg:text-xl font-bold tracking-wide uppercase text-black"
-                  style={{
-                    fontFamily: "'Times New Roman', Times, serif",
-                    fontWeight: 700,
-                  }}
-                >
-                  RAJUK UTTARA MODEL COLLEGE
-                </h1>
-                <h2
-                  className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-black"
-                  style={{
-                    fontFamily: "'Times New Roman', Times, serif",
-                    fontWeight: 700,
-                  }}
-                >
-                  DAYWISE CLASS ROUTINE-2026
-                </h2>
-                <h3
-                  className="text-[10px] sm:text-[11px] font-bold tracking-wide uppercase"
-                  style={{
-                    color: "#00B050",
-                    fontFamily: "'Times New Roman', Times, serif",
-                    fontWeight: 700,
-                  }}
-                >
-                  ENGLISH MEDIUM-MORNING SHIFT
-                </h3>
+              <div className="no-print sm:hidden flex items-center justify-between text-[11px] text-zinc-500 py-1 px-1">
+                <span>Swipe horizontally to view all periods</span>
+                <span className="font-bold text-primary">&rarr;</span>
               </div>
-            </div>
 
-            {/* Timetable Table Grid - Authentic PDF replica */}
-            <div className="timetable-wrapper overflow-x-auto mt-1">
-              <table
-                className="routine-table w-full border-collapse text-center text-[11.5px]"
-                style={{
-                  border: "1.5px solid #000000",
-                  fontFamily: "'Times New Roman', Times, serif",
-                }}
-              >
-                <thead>
-                  {/* Top Day Banner Row in Yellow (#FFFF00) */}
-                  <tr
-                    className="pdf-header-day"
+              <div className="timetable-wrapper overflow-x-auto mt-1 -mx-2 sm:mx-0">
+                <table
+                  className="routine-table w-full border-collapse text-center text-[13.5px]"
+                  style={{
+                    border: "1.5px solid #000000",
+                    fontFamily: "'Times New Roman', Times, serif",
+                  }}
+                >
+                  <thead>
+                    <tr
+                      className="pdf-header-day"
                     style={{
                       backgroundColor: "#FFFF00",
                       borderBottom: "1px solid #000000",
@@ -480,7 +518,7 @@ export function PdfRoutineView({
                   >
                     <th
                       colSpan={9}
-                      className="py-0.5 text-center font-bold tracking-widest text-xs sm:text-sm text-black uppercase"
+                      className="py-0.5 text-center font-bold tracking-widest text-sm sm:text-base text-black uppercase"
                       style={{
                         backgroundColor: "#FFFF00",
                         color: "#000000",
@@ -491,7 +529,6 @@ export function PdfRoutineView({
                     </th>
                   </tr>
 
-                  {/* Period Numbers & Timings in Soft Blue (#8DB3E2) */}
                   <tr
                     className="pdf-header-periods text-black font-bold"
                     style={{
@@ -501,7 +538,7 @@ export function PdfRoutineView({
                   >
                     <th
                       onClick={() => onAddSection && setIsClassModalOpen(true)}
-                      className="py-0.5 px-1 text-center w-12 whitespace-nowrap text-[11.5px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
+                      className="py-0.5 px-1 text-center w-12 whitespace-nowrap text-[13.5px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors sticky left-0 z-20"
                       title="Click to add, edit, or remove classes and sections"
                       style={{
                         border: "1px solid #000000",
@@ -512,7 +549,9 @@ export function PdfRoutineView({
                       Class
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -521,13 +560,15 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">1st</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">1st</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(1, "7.30-8.10")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -536,13 +577,15 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">2nd</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">2nd</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(2, "8.10-8.45")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -551,13 +594,15 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">3rd</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">3rd</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(3, "8.45-9.20")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -566,28 +611,33 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">4th</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">4th</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(4, "9.20-9.55")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
-                      className="pdf-break-col py-0.5 px-0.5 text-center w-14 text-[11px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
+                      className="pdf-break-col py-0.5 px-0.5 text-center w-8 min-w-[28px] max-w-[34px] text-[12.5px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
                         border: "1px solid #000000",
                         backgroundColor: "#8DB3E2",
                         color: "#000000",
+                        width: "30px",
                       }}
                     >
-                      <div className="period-num text-[11px]">Break</div>
-                      <div className="period-timing text-[9px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[12.5px]">Break</div>
+                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
                         ({getPeriodTime(0, "9.55-10:25")})
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -596,13 +646,15 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">5th</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">5th</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(5, "10.25-11.00")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -611,13 +663,15 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">6th</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">6th</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(6, "11.00-11.35")}
                       </div>
                     </th>
                     <th
-                      onClick={() => onUpdateTimings && setIsTimingModalOpen(true)}
+                      onClick={() =>
+                        onUpdateTimings && setIsTimingModalOpen(true)
+                      }
                       className="py-0.5 px-0.5 text-center min-w-[76px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors"
                       title="Click to edit timings"
                       style={{
@@ -626,8 +680,8 @@ export function PdfRoutineView({
                         color: "#000000",
                       }}
                     >
-                      <div className="period-num text-[11.5px]">7th</div>
-                      <div className="period-timing text-[9.5px] font-normal leading-none mt-0.5">
+                      <div className="period-num text-[13.5px]">7th</div>
+                      <div className="period-timing text-[10.5px] font-normal leading-none mt-0.5">
                         {getPeriodTime(7, "11.35-12.10")}
                       </div>
                     </th>
@@ -635,7 +689,7 @@ export function PdfRoutineView({
                 </thead>
 
                 <tbody>
-                  {dayRoutine.sections.map((sec) => {
+                  {dayRoutine.sections.map((sec, secIdx) => {
                     const isSuspended = !sec.isActive;
 
                     return (
@@ -646,9 +700,8 @@ export function PdfRoutineView({
                           borderBottom: "1px solid #000000",
                         }}
                       >
-                        {/* Section Header Cell with Yellow (#FFFF00) Background */}
                         <td
-                          className="pdf-section-col py-0.5 px-0.5 font-bold text-black whitespace-nowrap text-center text-[11.5px] relative group"
+                          className="pdf-section-col py-0.5 px-0.5 font-bold text-black whitespace-nowrap text-center text-[13.5px] relative group sticky left-0 z-10"
                           style={{
                             border: "1px solid #000000",
                             backgroundColor: "#FFFF00",
@@ -657,7 +710,6 @@ export function PdfRoutineView({
                         >
                           <div className="flex items-center justify-center gap-1">
                             <span>{sec.sectionId}</span>
-                            {/* In-browser quick toggle for section suspend/resume */}
                             {onToggleSectionStatus && (
                               <button
                                 type="button"
@@ -667,7 +719,7 @@ export function PdfRoutineView({
                                     dayRoutine.day,
                                     sec.sectionId,
                                     !sec.isActive,
-                                    sec.statusReason || "Suspended"
+                                    sec.statusReason || "Suspended",
                                   );
                                 }}
                                 className="no-print opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-600 hover:text-red-600 hover:bg-black/5 transition-opacity cursor-pointer"
@@ -683,19 +735,114 @@ export function PdfRoutineView({
                           </div>
                         </td>
 
-                        {/* If whole section is suspended: span all periods cleanly */}
                         {isSuspended ? (
-                          <td
-                            colSpan={8}
-                            className="py-0.5 px-1 text-center font-bold tracking-wider text-[11.5px]"
-                            style={{
-                              border: "1px solid #000000",
-                              backgroundColor: "#FEE2E2",
-                              color: "#991B1B",
-                            }}
-                          >
-                            Class Suspended
-                          </td>
+                          <>
+                            <td
+                              colSpan={4}
+                              onClick={() => {
+                                if (onToggleSectionStatus) {
+                                  const newReason = prompt(
+                                    `Edit close reason for ${sec.sectionId} (leave empty to reactivate):`,
+                                    sec.statusReason || "Exam",
+                                  );
+                                  if (newReason !== null) {
+                                    if (newReason.trim()) {
+                                      onToggleSectionStatus(
+                                        dayRoutine.day,
+                                        sec.sectionId,
+                                        false,
+                                        newReason.trim(),
+                                      );
+                                    } else {
+                                      onToggleSectionStatus(
+                                        dayRoutine.day,
+                                        sec.sectionId,
+                                        true,
+                                        "Normal",
+                                      );
+                                    }
+                                  }
+                                }
+                              }}
+                              className="py-1 px-2 text-center font-bold tracking-wider text-[13px] cursor-pointer hover:bg-rose-200 transition-colors"
+                              title="Click to edit close reason or reactivate"
+                              style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#FEE2E2",
+                                color: "#991B1B",
+                              }}
+                            >
+                              <span className="uppercase font-bold tracking-wide">
+                                {sec.statusReason
+                                  ? `Closed: ${sec.statusReason}`
+                                  : "Class Suspended / Closed"}
+                              </span>
+                            </td>
+
+                            {secIdx === 0 && (
+                              <td
+                                rowSpan={dayRoutine.sections.length}
+                                className="pdf-break-col text-center text-black font-bold tracking-widest align-middle select-none"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#8DB3E2",
+                                  color: "#000000",
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                  width: "30px",
+                                  minWidth: "28px",
+                                  maxWidth: "34px",
+                                  fontSize: "13px",
+                                  letterSpacing: "4px",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                BREAK / TIFFIN
+                              </td>
+                            )}
+
+                            <td
+                              colSpan={3}
+                              onClick={() => {
+                                if (onToggleSectionStatus) {
+                                  const newReason = prompt(
+                                    `Edit close reason for ${sec.sectionId} (leave empty to reactivate):`,
+                                    sec.statusReason || "Exam",
+                                  );
+                                  if (newReason !== null) {
+                                    if (newReason.trim()) {
+                                      onToggleSectionStatus(
+                                        dayRoutine.day,
+                                        sec.sectionId,
+                                        false,
+                                        newReason.trim(),
+                                      );
+                                    } else {
+                                      onToggleSectionStatus(
+                                        dayRoutine.day,
+                                        sec.sectionId,
+                                        true,
+                                        "Normal",
+                                      );
+                                    }
+                                  }
+                                }
+                              }}
+                              className="py-1 px-2 text-center font-bold tracking-wider text-[13px] cursor-pointer hover:bg-rose-200 transition-colors"
+                              title="Click to edit close reason or reactivate"
+                              style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#FEE2E2",
+                                color: "#991B1B",
+                              }}
+                            >
+                              <span className="uppercase font-bold tracking-wide">
+                                {sec.statusReason
+                                  ? `Closed: ${sec.statusReason}`
+                                  : "Class Suspended / Closed"}
+                              </span>
+                            </td>
+                          </>
                         ) : (
                           <>
                             {[0, 1, 2, 3].map((periodIndex) =>
@@ -703,28 +850,39 @@ export function PdfRoutineView({
                                 sec.periods[periodIndex],
                                 periodIndex,
                                 sec.sectionId,
-                                dayRoutine.day
-                              )
+                                dayRoutine.day,
+                              ),
                             )}
 
-                            <td
-                              className="pdf-break-col text-center text-black text-[9.5px] py-0.5 px-0.5 font-bold"
-                              style={{
-                                border: "1px solid #000000",
-                                backgroundColor: "#8DB3E2",
-                                color: "#000000",
-                              }}
-                            >
-                              -
-                            </td>
+                            {secIdx === 0 && (
+                              <td
+                                rowSpan={dayRoutine.sections.length}
+                                className="pdf-break-col text-center text-black font-bold tracking-widest align-middle select-none"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#8DB3E2",
+                                  color: "#000000",
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                  width: "30px",
+                                  minWidth: "28px",
+                                  maxWidth: "34px",
+                                  fontSize: "13px",
+                                  letterSpacing: "4px",
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                BREAK / TIFFIN
+                              </td>
+                            )}
 
                             {[4, 5, 6].map((periodIndex) =>
                               renderRoutineCell(
                                 sec.periods[periodIndex],
                                 periodIndex,
                                 sec.sectionId,
-                                dayRoutine.day
-                              )
+                                dayRoutine.day,
+                              ),
                             )}
                           </>
                         )}
@@ -733,11 +891,11 @@ export function PdfRoutineView({
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
 
-            {/* Signature Footer - Exact replica of PDF */}
             <div
-              className="routine-signature-footer mt-2 sm:mt-3 pt-1 flex items-center justify-between text-[11px] font-bold text-black px-4"
+              className="routine-signature-footer mt-auto pt-8 pb-2 print:pt-4 print:pb-1 flex items-center justify-between text-[11px] font-bold text-black px-4"
               style={{
                 fontFamily: "'Times New Roman', Times, serif",
                 color: "#000000",
@@ -769,21 +927,23 @@ export function PdfRoutineView({
         ))}
       </div>
 
-      {/* Interactive Cell Editor Modal (Strictly hidden during printing) */}
       {editingCell && (
-        <div className="no-print fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border p-6 rounded-2xl shadow-xl max-w-md w-full space-y-4">
+        <div className="no-print fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="font-bold text-base text-foreground">
-                  Edit Cell: {editingCell.sectionId} • Period {editingCell.periodIndex + 1}
+                  Edit Cell: {editingCell.sectionId} • Period{" "}
+                  {editingCell.periodIndex + 1}
                 </h3>
-                <p className="text-xs text-foreground-muted">Day: {editingCell.day}</p>
+                <p className="text-xs text-foreground-muted">
+                  Day: {editingCell.day}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingCell(null)}
-                className="p-1 rounded-lg hover:bg-secondary text-foreground-muted cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-secondary text-foreground-muted cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -793,14 +953,18 @@ export function PdfRoutineView({
               onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.currentTarget;
-                const subject = (form.elements.namedItem("subject") as HTMLInputElement).value.trim();
-                const teacherCode = (form.elements.namedItem("teacherCode") as HTMLInputElement).value.trim();
+                const subject = (
+                  form.elements.namedItem("subject") as HTMLInputElement
+                ).value.trim();
+                const teacherCode = (
+                  form.elements.namedItem("teacherCode") as HTMLInputElement
+                ).value.trim();
                 if (!subject || !teacherCode) {
                   onUpdateCell(
                     editingCell.day,
                     editingCell.sectionId,
                     editingCell.periodIndex,
-                    null
+                    null,
                   );
                 } else {
                   onUpdateCell(
@@ -811,9 +975,10 @@ export function PdfRoutineView({
                       subject,
                       teacherCode,
                       room: editingCell.cell?.room,
-                      substituteTeacherCode: editingCell.cell?.substituteTeacherCode,
-                      substituteReason: undefined, // Reason not needed
-                    }
+                      substituteTeacherCode:
+                        editingCell.cell?.substituteTeacherCode,
+                      substituteReason: undefined,
+                    },
                   );
                 }
                 setEditingCell(null);
@@ -821,7 +986,9 @@ export function PdfRoutineView({
               className="space-y-3 text-xs"
             >
               <div>
-                <label className="font-medium text-foreground block mb-1">Subject Name</label>
+                <label className="font-medium text-foreground block mb-1">
+                  Subject Name
+                </label>
                 <input
                   name="subject"
                   defaultValue={editingCell.cell?.subject || ""}
@@ -831,11 +998,13 @@ export function PdfRoutineView({
               </div>
 
               <div>
-                <label className="font-medium text-foreground block mb-1">Teacher Code (e.g. AA, MR, ZI)</label>
+                <label className="font-medium text-foreground block mb-1">
+                  Teacher Acronym
+                </label>
                 <input
                   name="teacherCode"
                   defaultValue={editingCell.cell?.teacherCode || ""}
-                  placeholder="e.g. AA, MR, ZI, GCS, SM"
+                  placeholder="e.g. NC"
                   className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 uppercase font-mono"
                 />
               </div>
@@ -861,7 +1030,7 @@ export function PdfRoutineView({
                           ...editingCell.cell!,
                           substituteTeacherCode: undefined,
                           substituteReason: undefined,
-                        }
+                        },
                       );
                       setEditingCell(null);
                     }}
@@ -880,7 +1049,7 @@ export function PdfRoutineView({
                       editingCell.day,
                       editingCell.sectionId,
                       editingCell.periodIndex,
-                      null
+                      null,
                     );
                     setEditingCell(null);
                   }}
@@ -930,21 +1099,28 @@ export function PdfRoutineView({
           onRemoveSection={onRemoveSection}
           onEditSection={onEditSection}
           onReorderSections={onReorderSections}
+          onAddClass={onAddClass}
+          onRenameClass={onRenameClass}
+          onDeleteClass={onDeleteClass}
         />
       )}
 
       {/* Teacher & Faculty Manager Modal */}
-      {isTeacherModalOpen && teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
-        <TeacherManagerModal
-          isOpen={isTeacherModalOpen}
-          onClose={() => setIsTeacherModalOpen(false)}
-          teachers={teachers}
-          onAddTeacher={onAddTeacher}
-          onRemoveTeacher={onRemoveTeacher}
-          onEditTeacher={onEditTeacher}
-          onResetTeachers={onResetTeachers}
-        />
-      )}
+      {isTeacherModalOpen &&
+        teachers &&
+        onAddTeacher &&
+        onRemoveTeacher &&
+        onEditTeacher && (
+          <TeacherManagerModal
+            isOpen={isTeacherModalOpen}
+            onClose={() => setIsTeacherModalOpen(false)}
+            teachers={teachers}
+            onAddTeacher={onAddTeacher}
+            onRemoveTeacher={onRemoveTeacher}
+            onEditTeacher={onEditTeacher}
+            onResetTeachers={onResetTeachers}
+          />
+        )}
 
       {/* Strict Print CSS: Ensures each day routine fits precisely on 1 single page without any overflow */}
       <style jsx global>{`
@@ -961,24 +1137,20 @@ export function PdfRoutineView({
             background: #ffffff !important;
             color: #000000 !important;
             width: 100% !important;
-            height: 100% !important;
-            overflow: hidden !important;
+            height: auto !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* Hide EVERYTHING in the DOM */
           body * {
             visibility: hidden !important;
           }
 
-          /* Only show the routine-print-area and its descendants */
           .routine-print-area,
           .routine-print-area * {
             visibility: visible !important;
           }
 
-          /* Position the routine print container at top left */
           .routine-print-area {
             position: absolute !important;
             left: 0 !important;
@@ -988,17 +1160,16 @@ export function PdfRoutineView({
             padding: 0 !important;
           }
 
-          /* Hide any UI buttons, modals, toolbars */
           .no-print {
             display: none !important;
           }
 
-          /* Each routine sheet is locked to exactly 1 printed page (fits both A4 297mm and Letter 279mm) */
           .routine-sheet {
             width: 100% !important;
             max-width: 100% !important;
-            height: 268mm !important;
-            max-height: 268mm !important;
+            height: 285mm !important;
+            max-height: 287mm !important;
+            min-height: 280mm !important;
             page-break-before: auto !important;
             page-break-after: always !important;
             page-break-inside: avoid !important;
@@ -1014,7 +1185,6 @@ export function PdfRoutineView({
             flex-direction: column !important;
             justify-content: space-between !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
           }
 
           .routine-sheet:last-child {
@@ -1022,7 +1192,6 @@ export function PdfRoutineView({
             break-after: avoid !important;
           }
 
-          /* College Header Banner */
           .college-header-banner {
             flex-shrink: 0 !important;
             padding-bottom: 2px !important;
@@ -1047,24 +1216,22 @@ export function PdfRoutineView({
             margin: 0 !important;
           }
 
-          /* Timetable Wrapper & Table */
           .timetable-wrapper {
-            flex: 1 1 auto !important;
+            flex: 0 1 auto !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: hidden !important;
-            display: flex !important;
-            flex-direction: column !important;
+            overflow: visible !important;
+            display: block !important;
           }
 
           table.routine-table {
             width: 100% !important;
-            height: 100% !important;
+            height: auto !important;
             border: 1.5px solid #000000 !important;
             border-collapse: collapse !important;
             border-spacing: 0 !important;
             table-layout: fixed !important;
-            font-family: 'Times New Roman', Times, serif !important;
+            font-family: "Times New Roman", Times, serif !important;
           }
 
           table.routine-table thead,
@@ -1074,43 +1241,43 @@ export function PdfRoutineView({
           }
 
           table.routine-table thead tr.pdf-header-day th {
-            height: 5.5mm !important;
-            max-height: 5.5mm !important;
+            height: 5mm !important;
+            max-height: 5mm !important;
             padding: 0 !important;
-            font-size: 9.5pt !important;
+            font-size: 10.5pt !important;
             line-height: 1.1 !important;
-            background-color: #FFFF00 !important;
+            background-color: #ffff00 !important;
             border: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           table.routine-table thead tr.pdf-header-periods th {
-            height: 8mm !important;
-            max-height: 8mm !important;
+            height: 7.2mm !important;
+            max-height: 7.5mm !important;
             padding: 0.5px 0.5px !important;
             line-height: 1.05 !important;
-            background-color: #8DB3E2 !important;
+            background-color: #8db3e2 !important;
             border: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           table.routine-table thead tr.pdf-header-periods th .period-num {
-            font-size: 8.5pt !important;
+            font-size: 9.2pt !important;
             font-weight: bold !important;
             line-height: 1 !important;
           }
 
           table.routine-table thead tr.pdf-header-periods th .period-timing {
-            font-size: 6.5pt !important;
+            font-size: 7.2pt !important;
             font-weight: normal !important;
             line-height: 1 !important;
           }
 
           table.routine-table tbody tr {
-            height: 9.2mm !important;
-            max-height: 9.5mm !important;
+            height: 8.0mm !important;
+            max-height: 8.4mm !important;
           }
 
           table.routine-table tbody td {
@@ -1128,49 +1295,55 @@ export function PdfRoutineView({
 
           table.routine-table tbody td.pdf-section-col {
             width: 36px !important;
-            font-size: 8.5pt !important;
+            font-size: 9.2pt !important;
             font-weight: bold !important;
-            background-color: #FFFF00 !important;
+            background-color: #ffff00 !important;
             border: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           table.routine-table tbody td.pdf-break-col {
-            width: 32px !important;
-            background-color: #8DB3E2 !important;
+            width: 30px !important;
+            max-width: 34px !important;
+            background-color: #8db3e2 !important;
             border: 1px solid #000000 !important;
-            font-size: 8pt !important;
+            font-size: 9.2pt !important;
             font-weight: bold !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            writing-mode: vertical-rl !important;
+            transform: rotate(180deg) !important;
+            letter-spacing: 3px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           table.routine-table tbody tr.pdf-suspended-row td {
-            background-color: #FEE2E2 !important;
-            color: #991B1B !important;
-            font-size: 8.5pt !important;
+            background-color: #fee2e2 !important;
+            color: #991b1b !important;
+            font-size: 9pt !important;
             border: 1px solid #000000 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           .cell-content {
-            font-size: 8pt !important;
+            font-size: 8.8pt !important;
             line-height: 1.05 !important;
           }
 
           .sub-indicator {
-            font-size: 6.5pt !important;
+            font-size: 7pt !important;
             line-height: 1 !important;
             margin-top: 0px !important;
           }
 
-          /* Signature Footer */
           .routine-signature-footer {
             flex-shrink: 0 !important;
-            margin-top: 2.5mm !important;
-            padding-top: 1.5mm !important;
+            margin-top: auto !important;
+            padding-top: 4mm !important;
+            padding-bottom: 2mm !important;
             font-size: 8pt !important;
             line-height: 1.1 !important;
           }

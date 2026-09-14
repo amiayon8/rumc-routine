@@ -200,6 +200,19 @@ body {
   background: var(--muted-foreground);
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.timetable-wrapper {
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ==========================================================================
    OFFICIAL ROUTINE PRINT STYLES - BULLETPROOF CELL BORDER RENDERING
    Fixes Chromium bug where border-collapse drops sub-pixel borders on print
@@ -277,7 +290,7 @@ body {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
-    margin: 0 0 10mm 0 !important;
+    margin: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
   }

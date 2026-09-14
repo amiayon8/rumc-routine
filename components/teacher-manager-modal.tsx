@@ -241,22 +241,22 @@ function TeacherManagerModalContent({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative flex max-h-[92vh] w-full max-w-5xl flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2.5 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative flex max-h-[94vh] w-full max-w-5xl flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border bg-muted/40 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <h2 className="text-base sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
                 Faculty & Subject Directory
                 <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                  {teacherList.length} Teachers
+                  {teacherList.length}
                 </span>
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground hidden sm:block">
                 Manage faculty acronyms and subject variations across classes for routines and smart substitutions.
               </p>
             </div>
@@ -272,7 +272,7 @@ function TeacherManagerModalContent({
         {/* Content Body: Two columns (Left: Add Form & Tips, Right: Search & Teacher List) */}
         <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
           {/* Left Column: Add New Teacher Form */}
-          <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-border bg-muted/20 p-5 overflow-y-auto">
+          <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-border bg-muted/20 p-4 sm:p-5 overflow-y-auto max-h-64 md:max-h-none">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Plus className="h-4 w-4 text-primary" />
               Add New Teacher

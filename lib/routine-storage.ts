@@ -17,7 +17,7 @@ import {
   saveTimingsToSupabase,
 } from "./supabase";
 
-const STORAGE_KEY = "rumc_emms_routine_data_v1";
+const STORAGE_KEY = "rumc_emms_routine_data_v2";
 const TIMINGS_STORAGE_KEY = "rumc_emms_timings_v1";
 const TEACHERS_STORAGE_KEY = "rumc_emms_teachers_v1";
 

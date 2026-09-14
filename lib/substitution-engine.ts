@@ -43,16 +43,14 @@ export interface TeacherLoadSummary {
   status: "light" | "optimal" | "heavy" | "overloaded";
 }
 
-/**
- * Calculates detailed teaching loads for all teachers across the week
- */
 export function calculateTeacherLoads(
-  routineData: DayRoutine[]
+  routineData: DayRoutine[],
+  customTeachers?: Record<string, TeacherInfo>
 ): Record<string, TeacherLoadSummary> {
+  const directory = customTeachers || TEACHER_DIRECTORY;
   const result: Record<string, TeacherLoadSummary> = {};
 
-  // Initialize for all known teachers
-  Object.values(TEACHER_DIRECTORY).forEach((t) => {
+  Object.values(directory).forEach((t) => {
     result[t.code] = {
       teacher: t,
       dailyLoads: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
@@ -70,54 +68,62 @@ export function calculateTeacherLoads(
 
   routineData.forEach((day) => {
     const dayName = day.day;
+    const busyPeriodsByTeacher: Record<string, Set<number>> = {};
+    const teacherSubjects: Record<string, string> = {};
+
     day.sections.forEach((sec) => {
-      // If class is closed, don't count towards active teaching duty load
       if (!sec.isActive) return;
 
       sec.periods.forEach((cell, pIdx) => {
         if (!cell) return;
 
-        // Count for active teacher (or substitute if assigned)
         const activeCode = cell.substituteTeacherCode || cell.teacherCode;
-
-        // Handle composite codes e.g. "SJB,IJT" or "FAJ/YK/AAN"
         const codes = activeCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
 
         codes.forEach((code) => {
-          if (!result[code]) {
-            result[code] = {
-              teacher: TEACHER_DIRECTORY[code] || {
-                code,
-                name: `Teacher ${code}`,
-                dept: "General",
-                subject: cell.subject,
-              },
-              dailyLoads: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
-              totalWeekLoad: 0,
-              freeSlotsByDay: {
-                Sunday: [0, 1, 2, 3, 4, 5, 6],
-                Monday: [0, 1, 2, 3, 4, 5, 6],
-                Tuesday: [0, 1, 2, 3, 4, 5, 6],
-                Wednesday: [0, 1, 2, 3, 4, 5, 6],
-                Thursday: [0, 1, 2, 3, 4, 5, 6],
-              },
-              status: "light",
-            };
+          if (!busyPeriodsByTeacher[code]) {
+            busyPeriodsByTeacher[code] = new Set<number>();
           }
-
-          result[code].dailyLoads[dayName] = (result[code].dailyLoads[dayName] || 0) + 1;
-          result[code].totalWeekLoad += 1;
-
-          // Remove period from free slots
-          result[code].freeSlotsByDay[dayName] = result[code].freeSlotsByDay[dayName].filter(
-            (idx) => idx !== pIdx
-          );
+          busyPeriodsByTeacher[code].add(pIdx);
+          if (!teacherSubjects[code] && cell.subject) {
+            teacherSubjects[code] = cell.subject;
+          }
         });
       });
     });
+
+    Object.entries(busyPeriodsByTeacher).forEach(([code, periodSet]) => {
+      if (!result[code]) {
+        result[code] = {
+          teacher: directory[code] || {
+            code,
+            name: `Teacher ${code}`,
+            dept: "General",
+            subject: teacherSubjects[code] || "Subject",
+          },
+          dailyLoads: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
+          totalWeekLoad: 0,
+          freeSlotsByDay: {
+            Sunday: [0, 1, 2, 3, 4, 5, 6],
+            Monday: [0, 1, 2, 3, 4, 5, 6],
+            Tuesday: [0, 1, 2, 3, 4, 5, 6],
+            Wednesday: [0, 1, 2, 3, 4, 5, 6],
+            Thursday: [0, 1, 2, 3, 4, 5, 6],
+          },
+          status: "light",
+        };
+      }
+
+      const periodsCount = periodSet.size;
+      result[code].dailyLoads[dayName] = periodsCount;
+      result[code].totalWeekLoad += periodsCount;
+
+      result[code].freeSlotsByDay[dayName] = result[code].freeSlotsByDay[dayName].filter(
+        (idx) => !periodSet.has(idx)
+      );
+    });
   });
 
-  // Assign load status
   Object.values(result).forEach((summary) => {
     const avg = summary.totalWeekLoad / 5;
     if (avg >= 5) summary.status = "overloaded";
@@ -213,7 +219,7 @@ export function getMultiTeacherSubstitutionPlan({
   const dayRoutine = routineData.find((d) => d.day === dayName);
   if (!dayRoutine || absentTeacherCodes.length === 0) return [];
 
-  const teacherLoads = calculateTeacherLoads(routineData);
+  const teacherLoads = calculateTeacherLoads(routineData, teachersDirectory);
   const { teacherSections, teacherClasses, teacherSubjects } =
     buildTeacherExperienceIndex(routineData);
 

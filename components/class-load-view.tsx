@@ -41,8 +41,8 @@ export function ClassLoadView({
   const [isTeacherModalOpen, setIsTeacherModalOpen] = React.useState<boolean>(false);
 
   const teacherLoads = React.useMemo(() => {
-    return calculateTeacherLoads(routineData);
-  }, [routineData]);
+    return calculateTeacherLoads(routineData, teachers);
+  }, [routineData, teachers]);
 
   const loadList = React.useMemo(() => {
     return Object.values(teacherLoads).sort((a, b) => b.totalWeekLoad - a.totalWeekLoad);

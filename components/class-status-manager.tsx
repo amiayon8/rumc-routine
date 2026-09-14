@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DayRoutine, sortDaysCanonical } from "../lib/routine-data";
+import { DayRoutine, sortDaysCanonical, getTodaysWeekday } from "../lib/routine-data";
 import {
   CheckCircle2,
   XCircle,
@@ -24,7 +24,13 @@ export function ClassStatusManager({
   currentDay,
   onToggleSectionStatus,
 }: ClassStatusManagerProps) {
-  const [selectedDay, setSelectedDay] = React.useState<string>(currentDay);
+  const [selectedDay, setSelectedDay] = React.useState<string>(currentDay || getTodaysWeekday());
+
+  React.useEffect(() => {
+    if (currentDay) {
+      setSelectedDay(currentDay);
+    }
+  }, [currentDay]);
 
   const activeDayRoutine = routineData.find((d) => d.day === selectedDay) || routineData[0];
   const sections = activeDayRoutine.sections;

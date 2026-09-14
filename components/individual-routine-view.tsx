@@ -45,14 +45,12 @@ export function IndividualRoutineView({
   const allTeachers = React.useMemo(() => {
     const teacherMap: Record<string, TeacherInfo> = { ...(teachers || TEACHER_DIRECTORY) };
 
-    // Also scan routine data for any teacher codes not in TEACHER_DIRECTORY
     routineData.forEach((day) => {
       day.sections.forEach((sec) => {
         sec.periods.forEach((p) => {
           if (!p) return;
-          const code = p.substituteTeacherCode || p.teacherCode;
-          if (code) {
-            // Check for composite codes like SJB,IJT or FAJ/YK
+          const codes = [p.teacherCode, p.substituteTeacherCode].filter(Boolean) as string[];
+          codes.forEach((code) => {
             const parts = code.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
             parts.forEach((c) => {
               if (!teacherMap[c]) {
@@ -64,7 +62,7 @@ export function IndividualRoutineView({
                 };
               }
             });
-          }
+          });
         });
       });
     });
@@ -73,11 +71,22 @@ export function IndividualRoutineView({
   }, [routineData, teachers]);
 
   // Compute teaching schedule for each teacher:
-  // teacherSchedules[teacherCode][day][periodIndex] = Array of { sectionId, subject, room, isSub }
   const teacherSchedules = React.useMemo(() => {
     const schedules: Record<
       string,
-      Record<string, Record<number, Array<{ sectionId: string; subject: string; room?: string; isSub?: boolean }>>>
+      Record<
+        string,
+        Record<
+          number,
+          Array<{
+            sectionId: string;
+            subject: string;
+            room?: string;
+            isSub?: boolean;
+            originalTeacherCode?: string;
+          }>
+        >
+      >
     > = {};
 
     Object.keys(allTeachers).forEach((code) => {
@@ -90,7 +99,7 @@ export function IndividualRoutineView({
     routineData.forEach((dayRoutine) => {
       const day = dayRoutine.day;
       dayRoutine.sections.forEach((sec) => {
-        if (!sec.isActive) return; // Ignore suspended sections
+        if (!sec.isActive) return;
         sec.periods.forEach((p, periodIdx) => {
           if (!p) return;
           const activeCode = p.substituteTeacherCode || p.teacherCode;
@@ -115,6 +124,7 @@ export function IndividualRoutineView({
               subject: p.subject,
               room: p.room,
               isSub: Boolean(p.substituteTeacherCode && p.substituteTeacherCode.includes(tCode)),
+              originalTeacherCode: p.teacherCode,
             });
           });
         });
@@ -610,7 +620,7 @@ export function IndividualRoutineView({
                           style={{
                             border: "1px solid #000000",
                             backgroundColor: classes.some((c) => c.isSub)
-                              ? "#FEF3C7" // light amber for substitute
+                              ? "#F3E8FF"
                               : "#FFFFFF",
                           }}
                         >
@@ -628,8 +638,8 @@ export function IndividualRoutineView({
                                 </div>
                               )}
                               {cls.isSub && (
-                                <span className="inline-block px-1 text-[8px] bg-amber-500 text-white font-bold rounded">
-                                  SUB
+                                <span className="inline-block px-1 text-[8px] bg-purple-700 text-white font-bold rounded">
+                                  SUB{cls.originalTeacherCode ? ` (for ${cls.originalTeacherCode})` : ""}
                                 </span>
                               )}
                             </div>
@@ -960,30 +970,34 @@ export function IndividualRoutineView({
                         );
                       }
 
-                      const displayTeacher = cell.substituteTeacherCode || cell.teacherCode;
-
                       return (
                         <td
                           key={periodIdx}
                           className="p-1.5 text-center"
                           style={{
                             border: "1px solid #000000",
-                            backgroundColor: cell.substituteTeacherCode ? "#FEF3C7" : "#FFFFFF",
+                            backgroundColor: cell.substituteTeacherCode ? "#F3E8FF" : "#FFFFFF",
                           }}
                         >
                           <div className="font-bold text-[13px] text-black leading-tight">
                             {cell.subject}
                           </div>
-                          <div className="text-[11px] font-bold text-blue-900 mt-0.5 leading-tight">
-                            {displayTeacher}
-                          </div>
-                          {cell.substituteTeacherCode && (
-                            <div className="text-[8px] text-zinc-500 line-through">
+                          {cell.substituteTeacherCode ? (
+                            <div className="mt-0.5">
+                              <div className="text-[11px] font-bold text-purple-900 leading-tight">
+                                {cell.substituteTeacherCode}
+                              </div>
+                              <div className="text-[9px] font-semibold text-purple-700 leading-none mt-0.5">
+                                (for {cell.teacherCode})
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] font-bold text-blue-900 mt-0.5 leading-tight">
                               {cell.teacherCode}
                             </div>
                           )}
                           {cell.room && (
-                            <div className="text-[9px] text-zinc-500 font-sans">
+                            <div className="text-[9px] text-zinc-500 font-sans mt-0.5">
                               R: {cell.room}
                             </div>
                           )}

@@ -23,9 +23,10 @@ import {
   Users,
   X,
   Power,
-  Layers,
   Clock,
   GraduationCap,
+  SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 
 interface PdfRoutineViewProps {
@@ -50,7 +51,7 @@ interface PdfRoutineViewProps {
   onResetAll: () => void;
   onExportJSON: () => void;
   onImportJSON: (jsonStr: string) => boolean;
-  onOpenSubstitution: (day: string) => void;
+  onOpenSubstitution?: (day: string) => void;
   onOpenClassStatus?: () => void;
   onAddSection?: (section: { sectionId: string; className: string; sectionName?: string }) => boolean;
   onRemoveSection?: (sectionId: string) => void;
@@ -105,7 +106,22 @@ export function PdfRoutineView({
     cell: RoutineCell | null;
   } | null>(null);
 
+  const [isToolsOpen, setIsToolsOpen] = React.useState<boolean>(false);
+  const toolsRef = React.useRef<HTMLDivElement | null>(null);
+
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+        setIsToolsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const sortedRoutines = React.useMemo(() => sortDaysCanonical(routineData), [routineData]);
   const activeDayRoutine = sortedRoutines.find((d) => d.day === currentDay) || sortedRoutines[0];
@@ -143,25 +159,94 @@ export function PdfRoutineView({
     return item ? item.time : fallback;
   };
 
+  const renderRoutineCell = (
+    cell: RoutineCell | null,
+    periodIndex: number,
+    sectionId: string,
+    day: string
+  ) => {
+    const isHighlighted =
+      searchFilter.trim() !== "" &&
+      cell &&
+      (cell.subject.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        cell.teacherCode.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        (cell.substituteTeacherCode &&
+          cell.substituteTeacherCode
+            .toLowerCase()
+            .includes(searchFilter.toLowerCase())));
+
+    return (
+      <td
+        key={periodIndex}
+        onClick={() =>
+          setEditingCell({
+            day,
+            sectionId,
+            periodIndex,
+            cell,
+          })
+        }
+        className={`routine-cell py-0.5 px-0.5 text-center align-middle cursor-pointer transition-colors ${
+          isHighlighted ? "bg-amber-200 text-black font-bold" : ""
+        }`}
+        style={{
+          border: "1px solid #000000",
+          backgroundColor: isHighlighted
+            ? "#FDE68A"
+            : cell?.substituteTeacherCode
+              ? "#F3E8FF"
+              : undefined,
+          color: "#000000",
+        }}
+      >
+        {cell ? (
+          <div className="cell-content leading-tight text-[11px]">
+            {cell.substituteTeacherCode ? (
+              <>
+                <div className="leading-tight">
+                  <span className="font-semibold text-black">{cell.subject}</span>
+                  <span className="text-black font-medium"> - </span>
+                  <span className="font-bold text-purple-900">
+                    {cell.substituteTeacherCode}
+                  </span>
+                </div>
+                <div className="sub-indicator text-[9px] font-semibold text-purple-700 leading-none mt-0.5">
+                  (for {cell.teacherCode})
+                </div>
+              </>
+            ) : (
+              <div className="leading-tight">
+                <span className="font-semibold text-black">{cell.subject}</span>
+                <span className="text-black font-medium"> - {cell.teacherCode}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-zinc-400 font-bold">-</span>
+        )}
+      </td>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Action Toolbar (Strictly hidden during printing) */}
       <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-xs">
-        {/* Day Switcher */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
           {daysList.map((day) => {
             const isSelected = day === currentDay;
             return (
               <button
                 key={day}
+                type="button"
                 onClick={() => {
                   setPrintAllDays(false);
                   onSelectDay(day);
                 }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${isSelected
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                  isSelected
                     ? "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/20"
                     : "bg-background-secondary text-foreground-muted hover:text-foreground hover:bg-muted"
-                  }`}
+                }`}
               >
                 {day}
               </button>
@@ -169,121 +254,147 @@ export function PdfRoutineView({
           })}
         </div>
 
-        {/* Search & Actions */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Search in table */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground-subtle" />
             <input
               type="text"
-              placeholder="Highlight teacher or subject..."
+              placeholder="Search teacher or subject..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               className="pl-8 pr-3 py-1.5 text-xs rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 w-40 sm:w-48"
             />
           </div>
 
-          {/* Quick PDF Print / Generator */}
           <button
             type="button"
             onClick={() => handlePrint(false)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
-            title="Print or Save current day routine as PDF matching official RUMC design"
+            title="Print or save current day routine as PDF"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print PDF ({currentDay})</span>
+            <span>Print ({currentDay})</span>
           </button>
 
           <button
             type="button"
             onClick={() => handlePrint(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-            title="Generate multi-page PDF with all 5 days"
+            title="Print all 5 days"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
-            <span className="hidden sm:inline">All 5 Days</span>
+            <span>All 5 Days</span>
           </button>
 
-          {onUpdateTimings && (
+          <div className="relative" ref={toolsRef}>
             <button
               type="button"
-              onClick={() => setIsTimingModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-              title="Change Routine Period and Break Timings"
+              onClick={() => setIsToolsOpen((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors shadow-xs cursor-pointer ${
+                isToolsOpen
+                  ? "bg-secondary text-foreground border-primary/40 ring-2 ring-primary/10"
+                  : "bg-card hover:bg-secondary border-border text-foreground"
+              }`}
+              title="Routine Management and Settings"
             >
-              <Clock className="w-3.5 h-3.5 text-primary" />
-              <span className="hidden sm:inline">Change Timings</span>
+              <SlidersHorizontal className="w-3.5 h-3.5 text-foreground-muted" />
+              <span>Tools</span>
+              <ChevronDown
+                className={`w-3 h-3 text-foreground-subtle transition-transform ${
+                  isToolsOpen ? "rotate-180" : ""
+                }`}
+              />
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() => onOpenSubstitution(currentDay)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-            title="Open Teacher Auto-Replacement Manager"
-          >
-            <Users className="w-3.5 h-3.5 text-purple-500" />
-            <span className="hidden sm:inline">Auto-Replace</span>
-          </button>
+            {isToolsOpen && (
+              <div className="absolute right-0 mt-2 w-56 p-1.5 rounded-2xl bg-card border border-border shadow-lg z-50 flex flex-col gap-1 text-xs">
+                {onAddSection && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsToolsOpen(false);
+                      setIsClassModalOpen(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                  >
+                    <GraduationCap className="w-4 h-4 text-primary" />
+                    <span>Manage Classes</span>
+                  </button>
+                )}
 
-          {onOpenClassStatus && (
-            <button
-              type="button"
-              onClick={onOpenClassStatus}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-              title="Manage Active and Suspended Classes/Sections"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">Suspend Manager</span>
-            </button>
-          )}
+                {teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsToolsOpen(false);
+                      setIsTeacherModalOpen(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                  >
+                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Manage Faculty</span>
+                  </button>
+                )}
 
-          {onAddSection && (
-            <button
-              type="button"
-              onClick={() => setIsClassModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-              title="Add, remove, or edit classes and sections"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-primary" />
-              <span className="hidden sm:inline">Manage Classes</span>
-            </button>
-          )}
+                {onUpdateTimings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsToolsOpen(false);
+                      setIsTimingModalOpen(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                  >
+                    <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Change Timings</span>
+                  </button>
+                )}
 
-          {teachers && onAddTeacher && onRemoveTeacher && onEditTeacher && (
-            <button
-              type="button"
-              onClick={() => setIsTeacherModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-card hover:bg-secondary border border-border text-foreground transition-colors shadow-xs cursor-pointer"
-              title="Add, remove, or edit teachers and class subject variations"
-            >
-              <Users className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="hidden sm:inline">Manage Faculty</span>
-            </button>
-          )}
+                <div className="h-px bg-border my-1" />
 
-          {/* Storage Menu Actions */}
-          <div className="h-4 w-px bg-border hidden lg:block" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsToolsOpen(false);
+                    onExportJSON();
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-primary" />
+                  <span>Export JSON</span>
+                </button>
 
-          <button
-            type="button"
-            onClick={onExportJSON}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-xl bg-background-secondary hover:bg-card border border-border text-foreground transition-colors cursor-pointer"
-            title="Export Routine as JSON"
-          >
-            <Download className="w-3.5 h-3.5 text-primary" />
-            <span className="hidden xl:inline">Export</span>
-          </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsToolsOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-background-secondary text-left transition-colors cursor-pointer"
+                >
+                  <Upload className="w-4 h-4 text-foreground-muted" />
+                  <span>Import JSON</span>
+                </button>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-xl bg-background-secondary hover:bg-card border border-border text-foreground transition-colors cursor-pointer"
-            title="Import Routine from JSON backup"
-          >
-            <Upload className="w-3.5 h-3.5 text-foreground-muted" />
-            <span className="hidden xl:inline">Import</span>
-          </button>
+                <div className="h-px bg-border my-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsToolsOpen(false);
+                    if (confirm("Reset routine to original 13 Sep 2026 PDF defaults?")) {
+                      onResetAll();
+                    }
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-danger hover:bg-danger-bg text-left transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Reset to Defaults</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <input
             type="file"
             ref={fileInputRef}
@@ -291,20 +402,6 @@ export function PdfRoutineView({
             accept=".json"
             className="hidden"
           />
-
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm("Reset routine to original 13 Sep 2026 PDF defaults?")) {
-                onResetAll();
-              }
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-xl bg-background-secondary hover:bg-danger-bg hover:text-danger border border-border transition-colors cursor-pointer"
-            title="Restore original routine defaults"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">Reset</span>
-          </button>
         </div>
       </div>
 
@@ -601,73 +698,15 @@ export function PdfRoutineView({
                           </td>
                         ) : (
                           <>
-                            {/* Periods 1 to 4 */}
-                            {[0, 1, 2, 3].map((pIdx) => {
-                              const cell = sec.periods[pIdx];
-                              const isHighlighted =
-                                searchFilter.trim() !== "" &&
-                                cell &&
-                                (cell.subject.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                                  cell.teacherCode.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                                  (cell.substituteTeacherCode &&
-                                    cell.substituteTeacherCode
-                                      .toLowerCase()
-                                      .includes(searchFilter.toLowerCase())));
+                            {[0, 1, 2, 3].map((periodIndex) =>
+                              renderRoutineCell(
+                                sec.periods[periodIndex],
+                                periodIndex,
+                                sec.sectionId,
+                                dayRoutine.day
+                              )
+                            )}
 
-                              return (
-                                <td
-                                  key={pIdx}
-                                  onClick={() =>
-                                    setEditingCell({
-                                      day: dayRoutine.day,
-                                      sectionId: sec.sectionId,
-                                      periodIndex: pIdx,
-                                      cell,
-                                    })
-                                  }
-                                  className={`routine-cell py-0.5 px-0.5 text-center align-middle cursor-pointer transition-colors ${isHighlighted ? "bg-amber-200 text-black font-bold" : ""
-                                    }`}
-                                  style={{
-                                    border: "1px solid #000000",
-                                    backgroundColor: isHighlighted
-                                      ? "#FDE68A"
-                                      : cell?.substituteTeacherCode
-                                        ? "#F3E8FF"
-                                        : undefined,
-                                    color: "#000000",
-                                  }}
-                                >
-                                  {cell ? (
-                                    <div className="cell-content leading-tight text-[11.5px]">
-                                      <span className="font-semibold text-black">
-                                        {cell.subject}
-                                      </span>
-                                      <span className="text-black font-medium">
-                                        {" - "}
-                                        {cell.substituteTeacherCode ? (
-                                          <span className="font-bold text-purple-800">
-                                            {cell.substituteTeacherCode}
-                                          </span>
-                                        ) : (
-                                          cell.teacherCode
-                                        )}
-                                      </span>
-
-                                      {/* Substituted indicator if substituted (code only, no full name or reason) */}
-                                      {cell.substituteTeacherCode && (
-                                        <div className="sub-indicator text-[9px] font-bold text-purple-700 leading-none mt-0.5">
-                                          (Sub: {cell.substituteTeacherCode})
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-zinc-400 font-bold">-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-
-                            {/* Break Column */}
                             <td
                               className="pdf-break-col text-center text-black text-[9.5px] py-0.5 px-0.5 font-bold"
                               style={{
@@ -679,71 +718,14 @@ export function PdfRoutineView({
                               -
                             </td>
 
-                            {/* Periods 5 to 7 */}
-                            {[4, 5, 6].map((pIdx) => {
-                              const cell = sec.periods[pIdx];
-                              const isHighlighted =
-                                searchFilter.trim() !== "" &&
-                                cell &&
-                                (cell.subject.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                                  cell.teacherCode.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                                  (cell.substituteTeacherCode &&
-                                    cell.substituteTeacherCode
-                                      .toLowerCase()
-                                      .includes(searchFilter.toLowerCase())));
-
-                              return (
-                                <td
-                                  key={pIdx}
-                                  onClick={() =>
-                                    setEditingCell({
-                                      day: dayRoutine.day,
-                                      sectionId: sec.sectionId,
-                                      periodIndex: pIdx,
-                                      cell,
-                                    })
-                                  }
-                                  className={`routine-cell py-0.5 px-0.5 text-center align-middle cursor-pointer transition-colors ${isHighlighted ? "bg-amber-200 text-black font-bold" : ""
-                                    }`}
-                                  style={{
-                                    border: "1px solid #000000",
-                                    backgroundColor: isHighlighted
-                                      ? "#FDE68A"
-                                      : cell?.substituteTeacherCode
-                                        ? "#F3E8FF"
-                                        : undefined,
-                                    color: "#000000",
-                                  }}
-                                >
-                                  {cell ? (
-                                    <div className="cell-content leading-tight text-[11.5px]">
-                                      <span className="font-semibold text-black">
-                                        {cell.subject}
-                                      </span>
-                                      <span className="text-black font-medium">
-                                        {" - "}
-                                        {cell.substituteTeacherCode ? (
-                                          <span className="font-bold text-purple-800">
-                                            {cell.substituteTeacherCode}
-                                          </span>
-                                        ) : (
-                                          cell.teacherCode
-                                        )}
-                                      </span>
-
-                                      {/* Substituted indicator if substituted (code only, no full name or reason) */}
-                                      {cell.substituteTeacherCode && (
-                                        <div className="sub-indicator text-[9px] font-bold text-purple-700 leading-none mt-0.5">
-                                          (Sub: {cell.substituteTeacherCode})
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-zinc-400 font-bold">-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
+                            {[4, 5, 6].map((periodIndex) =>
+                              renderRoutineCell(
+                                sec.periods[periodIndex],
+                                periodIndex,
+                                sec.sectionId,
+                                dayRoutine.day
+                              )
+                            )}
                           </>
                         )}
                       </tr>
@@ -857,6 +839,38 @@ export function PdfRoutineView({
                   className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 uppercase font-mono"
                 />
               </div>
+
+              {editingCell.cell?.substituteTeacherCode && (
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-purple-700 dark:text-purple-300">
+                      Sub: {editingCell.cell.substituteTeacherCode}
+                    </span>
+                    <span className="text-foreground-muted ml-1">
+                      (for {editingCell.cell.teacherCode})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateCell(
+                        editingCell.day,
+                        editingCell.sectionId,
+                        editingCell.periodIndex,
+                        {
+                          ...editingCell.cell!,
+                          substituteTeacherCode: undefined,
+                          substituteReason: undefined,
+                        }
+                      );
+                      setEditingCell(null);
+                    }}
+                    className="px-2 py-1 text-[11px] font-semibold text-danger hover:bg-danger-bg rounded-lg transition-colors cursor-pointer"
+                  >
+                    Remove Sub
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center justify-between pt-3 border-t border-border">
                 <button

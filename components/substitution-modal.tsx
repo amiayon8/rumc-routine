@@ -6,6 +6,7 @@ import {
   TEACHER_DIRECTORY,
   TeacherInfo,
   sortDaysCanonical,
+  getTodaysWeekday,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
@@ -47,7 +48,13 @@ export function SubstitutionManager({
   onApplySubstitution,
   onRevertSubstitution,
 }: SubstitutionManagerProps) {
-  const [selectedDay, setSelectedDay] = React.useState<string>(currentDay);
+  const [selectedDay, setSelectedDay] = React.useState<string>(currentDay || getTodaysWeekday());
+
+  React.useEffect(() => {
+    if (currentDay) {
+      setSelectedDay(currentDay);
+    }
+  }, [currentDay]);
   const [absentTeacherCodes, setAbsentTeacherCodes] = React.useState<string[]>(["AA"]);
   const [teacherAbsencePeriods, setTeacherAbsencePeriods] = React.useState<Record<string, number[]>>({});
   const [allowedReplacementCodes, setAllowedReplacementCodes] = React.useState<string[]>([]);

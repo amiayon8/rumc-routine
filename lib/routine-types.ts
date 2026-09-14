@@ -63,6 +63,23 @@ export const CANONICAL_DAYS = [
 
 export type CanonicalDay = (typeof CANONICAL_DAYS)[number];
 
+export function getTodaysWeekday(): CanonicalDay {
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ] as const;
+  const dayName = days[new Date().getDay()];
+  if (dayName === "Friday" || dayName === "Saturday") {
+    return "Sunday";
+  }
+  return dayName;
+}
+
 export const DAY_ORDER_MAP: Record<string, number> = {
   Sunday: 0,
   sunday: 0,

@@ -17,18 +17,21 @@ export async function fetchRoutineFromSupabase(): Promise<DayRoutine[] | null> {
     const { data, error } = await supabase
       .from("routine_store")
       .select("*")
+      .neq("id", "timings_config")
       .order("id", { ascending: true });
 
     if (error || !data || data.length === 0) {
       return null;
     }
 
-    // Map rows back to DayRoutine format and enforce Sunday-first week ordering
-    const mapped = data.map((row) => ({
-      day: row.day,
-      dateFormatted: row.date_formatted,
-      sections: row.sections_data,
-    }));
+    const validDays = new Set(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]);
+    const mapped = data
+      .filter((row) => validDays.has(row.day))
+      .map((row) => ({
+        day: row.day,
+        dateFormatted: row.date_formatted,
+        sections: row.sections_data,
+      }));
     return sortDaysCanonical(mapped);
   } catch (err) {
     console.warn("Supabase fetch failed, falling back:", err);

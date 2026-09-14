@@ -135,6 +135,7 @@ export default function Home() {
             routineData={routineData}
             currentDay={currentDay}
             teachers={teachers}
+            timings={timings}
             onApplySubstitution={applySubstitution}
             onRevertSubstitution={revertSubstitution}
           />

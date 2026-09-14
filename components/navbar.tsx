@@ -46,8 +46,8 @@ export function Navbar({
       label: "Teacher / Class Routine",
       icon: FileText,
     },
-    { id: "substitution", label: "Auto-Replacements", icon: Users },
-    { id: "class-load", label: "Faculty Load", icon: BarChart3 },
+    { id: "substitution", label: "Replacements", icon: Users },
+    { id: "class-load", label: "Class Load", icon: BarChart3 },
     { id: "class-status", label: "Class Status", icon: Layers },
   ] as const;
 

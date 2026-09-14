@@ -5,6 +5,7 @@ import {
   DayRoutine,
   sortDaysCanonical,
   getTodaysWeekday,
+  SectionRoutine,
 } from "../lib/routine-data";
 import {
   CheckCircle2,
@@ -17,6 +18,9 @@ import {
   X,
   GraduationCap,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { ClassManagerModal } from "./class-manager-modal";
 
@@ -78,6 +82,10 @@ export function ClassStatusManager({
   const [bulkReason, setBulkReason] = React.useState<string>("Exam");
   const [isClassModalOpen, setIsClassModalOpen] =
     React.useState<boolean>(false);
+  const [classModalTab, setClassModalTab] = React.useState<
+    "classes" | "sections"
+  >("classes");
+
   const [isAddClassOpen, setIsAddClassOpen] = React.useState<boolean>(false);
   const [newClassNameInput, setNewClassNameInput] = React.useState<string>("");
   const [newClassSectionInput, setNewClassSectionInput] =
@@ -92,6 +100,24 @@ export function ClassStatusManager({
   const [classActionError, setClassActionError] = React.useState<string | null>(
     null,
   );
+
+  const [addingSectionToClass, setAddingSectionToClass] = React.useState<
+    string | null
+  >(null);
+  const [newSectionCodeInput, setNewSectionCodeInput] =
+    React.useState<string>("");
+  const [newSectionLetterInput, setNewSectionLetterInput] =
+    React.useState<string>("");
+  const [editingSectionId, setEditingSectionId] = React.useState<string | null>(
+    null,
+  );
+  const [editSectionCodeInput, setEditSectionCodeInput] =
+    React.useState<string>("");
+  const [editSectionNameInput, setEditSectionNameInput] =
+    React.useState<string>("");
+  const [sectionActionError, setSectionActionError] = React.useState<
+    string | null
+  >(null);
 
   const classNames = React.useMemo(() => {
     const list: string[] = [];
@@ -206,6 +232,128 @@ export function ClassStatusManager({
     }
   };
 
+  const handleOpenAddSection = (clsName: string) => {
+    setAddingSectionToClass(clsName);
+    const existingForClass = sections.filter((s) => s.className === clsName);
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const usedLetters = existingForClass.map((s) =>
+      s.sectionName.toUpperCase(),
+    );
+    const nextLetter =
+      alphabet.split("").find((l) => !usedLetters.includes(l)) || "A";
+    setNewSectionLetterInput(nextLetter);
+    const num = clsName.replace(/\D/g, "");
+    setNewSectionCodeInput(num ? `${num}${nextLetter}` : nextLetter);
+    setSectionActionError(null);
+  };
+
+  const handleCreateSectionSubmit = (clsName: string, e: React.FormEvent) => {
+    e.preventDefault();
+    setSectionActionError(null);
+    const code = newSectionCodeInput.trim().toUpperCase();
+    const letter = newSectionLetterInput.trim().toUpperCase() || code.slice(-1);
+
+    if (!code) {
+      setSectionActionError("Section code cannot be empty.");
+      return;
+    }
+
+    if (
+      sections.some((s) => s.sectionId.toLowerCase() === code.toLowerCase())
+    ) {
+      setSectionActionError(`Section code "${code}" already exists.`);
+      return;
+    }
+
+    if (onAddSection) {
+      const success = onAddSection({
+        sectionId: code,
+        className: clsName,
+        sectionName: letter,
+      });
+      if (success) {
+        setAddingSectionToClass(null);
+        setNewSectionCodeInput("");
+        setNewSectionLetterInput("");
+        setSectionActionError(null);
+      } else {
+        setSectionActionError("Failed to add section.");
+      }
+    }
+  };
+
+  const handleStartEditSection = (sec: SectionRoutine) => {
+    setEditingSectionId(sec.sectionId);
+    setEditSectionCodeInput(sec.sectionId);
+    setEditSectionNameInput(sec.sectionName);
+    setSectionActionError(null);
+  };
+
+  const handleSaveEditSection = (
+    oldSectionId: string,
+    currentClassName: string,
+  ) => {
+    setSectionActionError(null);
+    const targetCode = editSectionCodeInput.trim().toUpperCase();
+    const targetName =
+      editSectionNameInput.trim().toUpperCase() || targetCode.slice(-1);
+
+    if (!targetCode) {
+      setSectionActionError("Section code cannot be empty.");
+      return;
+    }
+
+    if (
+      targetCode !== oldSectionId &&
+      sections.some(
+        (s) => s.sectionId.toLowerCase() === targetCode.toLowerCase(),
+      )
+    ) {
+      setSectionActionError(`Section code "${targetCode}" already exists.`);
+      return;
+    }
+
+    if (onEditSection) {
+      const success = onEditSection(oldSectionId, {
+        sectionId: targetCode,
+        className: currentClassName,
+        sectionName: targetName,
+      });
+      if (success) {
+        setEditingSectionId(null);
+        setSectionActionError(null);
+      } else {
+        setSectionActionError("Failed to update section.");
+      }
+    }
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete section "${sectionId}" across all days? This action can be undone with Ctrl+Z.`,
+    );
+    if (!confirmDelete) return;
+    if (onRemoveSection) {
+      onRemoveSection(sectionId);
+    }
+  };
+
+  const handleMoveSection = (sectionId: string, direction: "up" | "down") => {
+    if (!onReorderSections) return;
+    const currentIndex = sections.findIndex((s) => s.sectionId === sectionId);
+    if (currentIndex === -1) return;
+    const targetIndex =
+      direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+
+    const newOrder = sections.map((s) => s.sectionId);
+    const temp = newOrder[currentIndex];
+    newOrder[currentIndex] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
+
+    onReorderSections(newOrder);
+  };
+
   return (
     <div className="space-y-6">
       <div className="p-4 sm:p-6 rounded-3xl bg-card border border-border shadow-xs space-y-4">
@@ -220,7 +368,7 @@ export function ClassStatusManager({
               </h2>
             </div>
             <p className="text-xs text-foreground-muted mt-1">
-              Add new classes, rename, delete, or toggle active status. Marking
+              Add, edit, delete, and reorder classes and sections. Marking
               classes as closed automatically frees assigned teachers for
               substitution.
             </p>
@@ -238,11 +386,28 @@ export function ClassStatusManager({
 
             <button
               type="button"
-              onClick={() => setIsClassModalOpen(true)}
+              onClick={() => {
+                setClassModalTab("sections");
+                setIsClassModalOpen(true);
+              }}
               className="px-3.5 py-1.5 rounded-xl bg-background-secondary border border-border text-foreground font-semibold text-xs hover:bg-secondary transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              title="Open full Sections & Reordering Directory"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              <span>Reorder &amp; Sections</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setClassModalTab("classes");
+                setIsClassModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-background-secondary border border-border text-foreground font-semibold text-xs hover:bg-secondary transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              title="Open Directory Manager"
             >
               <GraduationCap className="w-3.5 h-3.5" />
-              <span>Manage Directory</span>
+              <span>Directory</span>
             </button>
 
             <div className="px-3 py-1.5 rounded-xl bg-success-bg text-success border border-success/30 text-xs font-bold flex items-center gap-1.5">
@@ -373,50 +538,22 @@ export function ClassStatusManager({
             >
               Mark All Active
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const hscSections = sections
-                  .filter(
-                    (s) =>
-                      s.className.includes("11") ||
-                      s.className.includes("12") ||
-                      s.className.toLowerCase().includes("hsc"),
-                  )
-                  .map((s) => s.sectionId);
-                const reasonText = bulkReason.trim()
-                  ? `HSC ${bulkReason.trim()}`
-                  : "College Prep Leave";
-                handleBulkSetStatus(
-                  hscSections,
-                  isHscClosed,
-                  isHscClosed ? "Normal" : reasonText,
-                );
-              }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer text-xs ${
-                isHscClosed
-                  ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40"
-                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20"
-              }`}
-            >
-              {isHscClosed
-                ? "Reactivate HSC (11 & 12)"
-                : "Close All HSC (11 & 12)"}
-            </button>
           </div>
         </div>
       </div>
 
-      {classActionError && (
+      {(classActionError || sectionActionError) && (
         <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{classActionError}</span>
+            <span>{classActionError || sectionActionError}</span>
           </div>
           <button
             type="button"
-            onClick={() => setClassActionError(null)}
+            onClick={() => {
+              setClassActionError(null);
+              setSectionActionError(null);
+            }}
             className="p-1 hover:bg-rose-500/20 rounded cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
@@ -429,6 +566,7 @@ export function ClassStatusManager({
           const classSections = sections.filter((s) => s.className === clsName);
           const closed = isClassClosed(clsName);
           const isEditing = editingClassName === clsName;
+          const isAddingSection = addingSectionToClass === clsName;
 
           return (
             <div
@@ -496,7 +634,17 @@ export function ClassStatusManager({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddSection(clsName)}
+                    className="px-2.5 py-1.5 rounded-xl font-semibold transition-all cursor-pointer text-xs bg-background-secondary border border-border text-foreground hover:bg-secondary inline-flex items-center gap-1"
+                    title={`Add section to ${clsName}`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Section</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => toggleClassBulk(clsName)}
@@ -513,78 +661,254 @@ export function ClassStatusManager({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {classSections.map((sec) => (
-                  <div
-                    key={sec.sectionId}
-                    className={`p-3.5 rounded-2xl border transition-all ${
-                      sec.isActive
-                        ? "bg-background-secondary/60 border-border shadow-2xs"
-                        : "bg-rose-500/[0.04] dark:bg-rose-500/[0.08] border-rose-500/30"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-foreground font-mono">
-                        {sec.sectionId}
-                      </span>
+              {isAddingSection && (
+                <form
+                  onSubmit={(e) => handleCreateSectionSubmit(clsName, e)}
+                  className="p-3.5 rounded-2xl bg-background-secondary/80 border border-primary/30 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Plus className="w-3.5 h-3.5 text-primary" />
+                      Add Section to {clsName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAddingSectionToClass(null)}
+                      className="text-foreground-subtle hover:text-foreground cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onToggleSectionStatus(
-                            selectedDay,
-                            sec.sectionId,
-                            !sec.isActive,
-                            sec.isActive
-                              ? bulkReason.trim()
-                                ? `${sec.className} ${bulkReason.trim()}`
-                                : "Class Exam"
-                              : "Normal",
-                          )
-                        }
-                        className={`px-2.5 py-1 text-[11px] font-bold rounded-full transition-all cursor-pointer ${
-                          sec.isActive
-                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                            : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25"
-                        }`}
-                      >
-                        {sec.isActive ? "Active" : "Closed"}
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-foreground-muted mb-1">
+                        Section Code (e.g. 6E, 7A)
+                      </label>
+                      <input
+                        type="text"
+                        value={newSectionCodeInput}
+                        onChange={(e) => setNewSectionCodeInput(e.target.value)}
+                        placeholder="e.g. 6E"
+                        className="w-full px-3 py-1.5 rounded-xl bg-card border border-border text-foreground font-medium outline-hidden focus:ring-2 focus:ring-primary/20"
+                      />
                     </div>
-
-                    <div className="text-[11px] text-foreground-muted space-y-1.5 pt-2 border-t border-border/60">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-medium shrink-0">Reason:</span>
-                        {sec.isActive ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate">
-                            {sec.statusReason || "Regular"}
-                          </span>
-                        ) : (
-                          <input
-                            type="text"
-                            value={sec.statusReason || "Exam"}
-                            onChange={(e) =>
-                              onToggleSectionStatus(
-                                selectedDay,
-                                sec.sectionId,
-                                false,
-                                e.target.value,
-                              )
-                            }
-                            className="px-1.5 py-0.5 text-[11px] rounded bg-background border border-rose-500/30 text-rose-600 dark:text-rose-400 font-semibold outline-hidden focus:ring-1 focus:ring-rose-400 w-full text-right"
-                            title="Edit close reason"
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Periods:</span>
-                        <span className="font-mono text-foreground font-semibold">
-                          {sec.periods.filter(Boolean).length} / 7
-                        </span>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-foreground-muted mb-1">
+                        Section Letter / Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newSectionLetterInput}
+                        onChange={(e) =>
+                          setNewSectionLetterInput(e.target.value)
+                        }
+                        placeholder="e.g. E"
+                        className="w-full px-3 py-1.5 rounded-xl bg-card border border-border text-foreground font-medium outline-hidden focus:ring-2 focus:ring-primary/20"
+                      />
                     </div>
                   </div>
-                ))}
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddingSectionToClass(null)}
+                      className="px-3 py-1 text-xs font-semibold text-foreground-muted hover:bg-secondary rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary-hover rounded-lg cursor-pointer"
+                    >
+                      Add Section
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {classSections.map((sec) => {
+                  const isEditingSec = editingSectionId === sec.sectionId;
+                  const globalIdx = sections.findIndex(
+                    (s) => s.sectionId === sec.sectionId,
+                  );
+                  const canMoveUp = globalIdx > 0;
+                  const canMoveDown = globalIdx < sections.length - 1;
+
+                  return (
+                    <div
+                      key={sec.sectionId}
+                      className={`p-3.5 rounded-2xl border transition-all ${
+                        sec.isActive
+                          ? "bg-background-secondary/60 border-border shadow-2xs"
+                          : "bg-rose-500/[0.04] dark:bg-rose-500/[0.08] border-rose-500/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        {isEditingSec ? (
+                          <div className="flex items-center gap-1 w-full mr-2">
+                            <input
+                              type="text"
+                              value={editSectionCodeInput}
+                              onChange={(e) =>
+                                setEditSectionCodeInput(e.target.value)
+                              }
+                              className="w-16 px-1.5 py-0.5 text-xs font-bold rounded bg-card border border-primary text-foreground outline-hidden font-mono"
+                              title="Section Code"
+                            />
+                            <input
+                              type="text"
+                              value={editSectionNameInput}
+                              onChange={(e) =>
+                                setEditSectionNameInput(e.target.value)
+                              }
+                              placeholder="Name"
+                              className="w-12 px-1.5 py-0.5 text-xs font-bold rounded bg-card border border-border text-foreground outline-hidden"
+                              title="Section Name"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSaveEditSection(sec.sectionId, clsName)
+                              }
+                              className="p-1 rounded bg-primary text-primary-foreground hover:bg-primary-hover cursor-pointer"
+                              title="Save Section"
+                            >
+                              <Check className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingSectionId(null)}
+                              className="p-1 rounded bg-secondary text-foreground hover:bg-muted cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-foreground font-mono">
+                              {sec.sectionId}
+                            </span>
+                            {sec.sectionName &&
+                              sec.sectionName !== sec.sectionId && (
+                                <span className="text-[10px] text-foreground-subtle">
+                                  ({sec.sectionName})
+                                </span>
+                              )}
+
+                            <div className="flex items-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleMoveSection(sec.sectionId, "up")
+                                }
+                                disabled={!canMoveUp}
+                                className={`p-0.5 rounded text-foreground-subtle hover:text-foreground hover:bg-secondary cursor-pointer ${
+                                  !canMoveUp
+                                    ? "opacity-30 cursor-not-allowed"
+                                    : ""
+                                }`}
+                                title="Move section up in routine order"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleMoveSection(sec.sectionId, "down")
+                                }
+                                disabled={!canMoveDown}
+                                className={`p-0.5 rounded text-foreground-subtle hover:text-foreground hover:bg-secondary cursor-pointer ${
+                                  !canMoveDown
+                                    ? "opacity-30 cursor-not-allowed"
+                                    : ""
+                                }`}
+                                title="Move section down in routine order"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditSection(sec)}
+                              className="p-1 rounded text-foreground-subtle hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                              title={`Edit section ${sec.sectionId}`}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSection(sec.sectionId)}
+                              className="p-1 rounded text-foreground-subtle hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title={`Delete section ${sec.sectionId}`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onToggleSectionStatus(
+                              selectedDay,
+                              sec.sectionId,
+                              !sec.isActive,
+                              sec.isActive
+                                ? bulkReason.trim()
+                                  ? `${sec.className} ${bulkReason.trim()}`
+                                  : "Class Exam"
+                                : "Normal",
+                            )
+                          }
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-full transition-all cursor-pointer shrink-0 ${
+                            sec.isActive
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:bg-rose-500/25"
+                          }`}
+                        >
+                          {sec.isActive ? "Active" : "Closed"}
+                        </button>
+                      </div>
+
+                      <div className="text-[11px] text-foreground-muted space-y-1.5 pt-2 border-t border-border/60">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-medium shrink-0">Reason:</span>
+                          {sec.isActive ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                              {sec.statusReason || "Regular"}
+                            </span>
+                          ) : (
+                            <input
+                              type="text"
+                              value={sec.statusReason || "Exam"}
+                              onChange={(e) =>
+                                onToggleSectionStatus(
+                                  selectedDay,
+                                  sec.sectionId,
+                                  false,
+                                  e.target.value,
+                                )
+                              }
+                              className="px-1.5 py-0.5 text-[11px] rounded bg-background border border-rose-500/30 text-rose-600 dark:text-rose-400 font-semibold outline-hidden focus:ring-1 focus:ring-rose-400 w-full text-right"
+                              title="Edit close reason"
+                            />
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Periods:</span>
+                          <span className="font-mono text-foreground font-semibold">
+                            {sec.periods.filter(Boolean).length} / 7
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -611,6 +935,7 @@ export function ClassStatusManager({
         onAddClass={onAddClass}
         onRenameClass={onRenameClass}
         onDeleteClass={onDeleteClass}
+        initialTab={classModalTab}
       />
     </div>
   );

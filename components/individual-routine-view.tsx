@@ -271,13 +271,8 @@ export function IndividualRoutineView({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Award className="w-5 h-5 text-primary" />
-              <span>Routine Generator &amp; Print Studio</span>
+              <span>Routine Generator</span>
             </h2>
-            <p className="text-xs text-foreground-muted">
-              Generate official, formatted 5-day routines for individual
-              teachers or specific classes &amp; sections.
-            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch sm:self-auto w-full sm:w-auto">

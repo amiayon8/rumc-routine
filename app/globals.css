@@ -210,6 +210,29 @@ body {
     margin: 4mm 4mm 5mm 4mm;
   }
 
+  :root,
+  .dark {
+    color-scheme: light !important;
+    --background: #ffffff !important;
+    --background-secondary: #f8fafc !important;
+    --foreground: #0f172a !important;
+    --foreground-muted: #64748b !important;
+    --foreground-subtle: #94a3b8 !important;
+    --card: #ffffff !important;
+    --card-foreground: #0f172a !important;
+    --card-border: #e2e8f0 !important;
+    --card-hover-border: #cbd5e1 !important;
+    --primary: #2563eb !important;
+    --primary-foreground: #ffffff !important;
+    --primary-subtle: #eff6ff !important;
+    --secondary: #f1f5f9 !important;
+    --secondary-foreground: #1e293b !important;
+    --muted: #f1f5f9 !important;
+    --muted-foreground: #64748b !important;
+    --border: #e2e8f0 !important;
+    --border-strong: #cbd5e1 !important;
+  }
+
   html,
   body {
     margin: 0 !important;

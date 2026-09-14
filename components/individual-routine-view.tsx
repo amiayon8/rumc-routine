@@ -9,12 +9,7 @@ import {
   TEACHER_DIRECTORY,
   TeacherInfo,
 } from "../lib/routine-data";
-import {
-  Printer,
-  User,
-  GraduationCap,
-  Award,
-} from "lucide-react";
+import { Printer, User, GraduationCap, Award } from "lucide-react";
 
 interface IndividualRoutineViewProps {
   routineData: DayRoutine[];
@@ -24,7 +19,13 @@ interface IndividualRoutineViewProps {
 
 type Mode = "teacher" | "section";
 
-const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] as const;
+const DAYS_OF_WEEK = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+] as const;
 
 export function IndividualRoutineView({
   routineData,
@@ -43,15 +44,22 @@ export function IndividualRoutineView({
   // 1. EXTRACT ALL TEACHERS & COMPUTE LOADS
   // ==========================================
   const allTeachers = React.useMemo(() => {
-    const teacherMap: Record<string, TeacherInfo> = { ...(teachers || TEACHER_DIRECTORY) };
+    const teacherMap: Record<string, TeacherInfo> = {
+      ...(teachers || TEACHER_DIRECTORY),
+    };
 
     routineData.forEach((day) => {
       day.sections.forEach((sec) => {
         sec.periods.forEach((p) => {
           if (!p) return;
-          const codes = [p.teacherCode, p.substituteTeacherCode].filter(Boolean) as string[];
+          const codes = [p.teacherCode, p.substituteTeacherCode].filter(
+            Boolean,
+          ) as string[];
           codes.forEach((code) => {
-            const parts = code.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+            const parts = code
+              .split(/[/,]/)
+              .map((s) => s.trim())
+              .filter(Boolean);
             parts.forEach((c) => {
               if (!teacherMap[c]) {
                 teacherMap[c] = {
@@ -105,7 +113,10 @@ export function IndividualRoutineView({
           const activeCode = p.substituteTeacherCode || p.teacherCode;
           if (!activeCode) return;
 
-          const parts = activeCode.split(/[/,]/).map((s) => s.trim()).filter(Boolean);
+          const parts = activeCode
+            .split(/[/,]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
           parts.forEach((tCode) => {
             if (!schedules[tCode]) {
               schedules[tCode] = {};
@@ -123,7 +134,10 @@ export function IndividualRoutineView({
               sectionId: sec.sectionId,
               subject: p.subject,
               room: p.room,
-              isSub: Boolean(p.substituteTeacherCode && p.substituteTeacherCode.includes(tCode)),
+              isSub: Boolean(
+                p.substituteTeacherCode &&
+                p.substituteTeacherCode.includes(tCode),
+              ),
               originalTeacherCode: p.teacherCode,
             });
           });
@@ -136,7 +150,10 @@ export function IndividualRoutineView({
 
   // Teacher load counts
   const teacherTotalLoads = React.useMemo(() => {
-    const loads: Record<string, { total: number; byDay: Record<string, number> }> = {};
+    const loads: Record<
+      string,
+      { total: number; byDay: Record<string, number> }
+    > = {};
     Object.keys(allTeachers).forEach((code) => {
       loads[code] = {
         total: 0,
@@ -171,7 +188,7 @@ export function IndividualRoutineView({
   }, [allTeachers, teacherTotalLoads]);
 
   const [selectedTeacherCode, setSelectedTeacherCode] = React.useState<string>(
-    sortedTeacherCodes[0] || "SM"
+    sortedTeacherCodes[0] || "SM",
   );
 
   // ==========================================
@@ -188,9 +205,10 @@ export function IndividualRoutineView({
   }, [routineData]);
 
   const [selectedSectionId, setSelectedSectionId] = React.useState<string>(
-    allSections[0]?.sectionId || "6A"
+    allSections[0]?.sectionId || "6A",
   );
-  const [selectedClassFilter, setSelectedClassFilter] = React.useState<string>("all");
+  const [selectedClassFilter, setSelectedClassFilter] =
+    React.useState<string>("all");
 
   const filteredSections = React.useMemo(() => {
     if (selectedClassFilter === "all") return allSections;
@@ -218,7 +236,9 @@ export function IndividualRoutineView({
     byDay: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
   };
 
-  const selectedSectionInfo = allSections.find((s) => s.sectionId === selectedSectionId) || {
+  const selectedSectionInfo = allSections.find(
+    (s) => s.sectionId === selectedSectionId,
+  ) || {
     sectionId: selectedSectionId,
     className: "Class",
     sectionName: selectedSectionId,
@@ -235,7 +255,8 @@ export function IndividualRoutineView({
               <span>Routine Generator & Print Studio</span>
             </h2>
             <p className="text-xs text-foreground-muted">
-              Generate official, formatted 5-day routines for individual teachers or specific classes & sections.
+              Generate official, formatted 5-day routines for individual
+              teachers or specific classes & sections.
             </p>
           </div>
 
@@ -286,7 +307,8 @@ export function IndividualRoutineView({
           <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold text-foreground block mb-1.5">
-                Select Teacher ({sortedTeacherCodes.length} Faculty Members Available)
+                Select Teacher ({sortedTeacherCodes.length} Faculty Members
+                Available)
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -321,7 +343,9 @@ export function IndividualRoutineView({
           <div className="pt-2 border-t border-border space-y-3">
             {/* Class filter chips */}
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-semibold text-foreground mr-1">Class Filter:</span>
+              <span className="font-semibold text-foreground mr-1">
+                Class Filter:
+              </span>
               <button
                 type="button"
                 onClick={() => setSelectedClassFilter("all")}
@@ -386,7 +410,9 @@ export function IndividualRoutineView({
           >
             {/* Header: WEF Date in RED & Shift Name */}
             <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
-              <span style={{ color: "#FF0000" }}>WEF: {getTodaysFullDate()}</span>
+              <span style={{ color: "#FF0000" }}>
+                WEF: {getTodaysFullDate()}
+              </span>
               <span className="text-zinc-600 text-[10px] uppercase font-semibold">
                 Morning Shift • EMMS
               </span>
@@ -591,7 +617,8 @@ export function IndividualRoutineView({
                 </thead>
                 <tbody>
                   {DAYS_OF_WEEK.map((dayName, rowIdx) => {
-                    const sched = teacherSchedules[selectedTeacherCode]?.[dayName] || {};
+                    const sched =
+                      teacherSchedules[selectedTeacherCode]?.[dayName] || {};
                     const dayLoad = selectedTeacherLoad.byDay[dayName] || 0;
 
                     const renderCell = (periodIdx: number) => {
@@ -632,14 +659,12 @@ export function IndividualRoutineView({
                               <div className="text-[11px] font-semibold text-zinc-800 leading-tight">
                                 {cls.subject}
                               </div>
-                              {cls.room && (
-                                <div className="text-[9px] text-zinc-500 font-sans">
-                                  R: {cls.room}
-                                </div>
-                              )}
                               {cls.isSub && (
                                 <span className="inline-block px-1 text-[8px] bg-purple-700 text-white font-bold rounded">
-                                  SUB{cls.originalTeacherCode ? ` (for ${cls.originalTeacherCode})` : ""}
+                                  SUB
+                                  {cls.originalTeacherCode
+                                    ? ` (for ${cls.originalTeacherCode})`
+                                    : ""}
                                 </span>
                               )}
                             </div>
@@ -739,7 +764,9 @@ export function IndividualRoutineView({
           >
             {/* Header: WEF Date in RED & Shift Name */}
             <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
-              <span style={{ color: "#FF0000" }}>WEF: {getTodaysFullDate()}</span>
+              <span style={{ color: "#FF0000" }}>
+                WEF: {getTodaysFullDate()}
+              </span>
               <span className="text-zinc-600 text-[10px] uppercase font-semibold">
                 Morning Shift • EMMS
               </span>
@@ -796,7 +823,9 @@ export function IndividualRoutineView({
               </div>
               <div>
                 <span className="font-bold">Medium / Shift: </span>
-                <span className="font-semibold">English Medium • Morning Shift</span>
+                <span className="font-semibold">
+                  English Medium • Morning Shift
+                </span>
               </div>
               <div>
                 <span className="font-bold">Academic Year: </span>
@@ -934,9 +963,11 @@ export function IndividualRoutineView({
                 </thead>
                 <tbody>
                   {DAYS_OF_WEEK.map((dayName, rowIdx) => {
-                    const dayRoutine = routineData.find((d) => d.day === dayName);
+                    const dayRoutine = routineData.find(
+                      (d) => d.day === dayName,
+                    );
                     const secRoutine = dayRoutine?.sections.find(
-                      (s) => s.sectionId === selectedSectionId
+                      (s) => s.sectionId === selectedSectionId,
                     );
 
                     const isClosed = secRoutine && !secRoutine.isActive;
@@ -976,7 +1007,9 @@ export function IndividualRoutineView({
                           className="p-1.5 text-center"
                           style={{
                             border: "1px solid #000000",
-                            backgroundColor: cell.substituteTeacherCode ? "#F3E8FF" : "#FFFFFF",
+                            backgroundColor: cell.substituteTeacherCode
+                              ? "#F3E8FF"
+                              : "#FFFFFF",
                           }}
                         >
                           <div className="font-bold text-[13px] text-black leading-tight">
@@ -994,11 +1027,6 @@ export function IndividualRoutineView({
                           ) : (
                             <div className="text-[11px] font-bold text-blue-900 mt-0.5 leading-tight">
                               {cell.teacherCode}
-                            </div>
-                          )}
-                          {cell.room && (
-                            <div className="text-[9px] text-zinc-500 font-sans mt-0.5">
-                              R: {cell.room}
                             </div>
                           )}
                         </td>

@@ -2,6 +2,7 @@ import {
   DayRoutine,
   TEACHER_DIRECTORY,
   TeacherInfo,
+  isNonTeachingSubject,
 } from "./routine-data";
 
 export interface SubstitutionCandidate {
@@ -87,7 +88,11 @@ export function calculateTeacherLoads(
             busyPeriodsByTeacher[code] = new Set<number>();
           }
           busyPeriodsByTeacher[code].add(pIdx);
-          if (!teacherSubjects[code] && cell.subject) {
+          if (
+            !teacherSubjects[code] &&
+            cell.subject &&
+            !isNonTeachingSubject(cell.subject, cell.isExam)
+          ) {
             teacherSubjects[code] = cell.subject;
           }
         });
@@ -175,6 +180,9 @@ export function buildTeacherExperienceIndex(routineData: DayRoutine[]) {
     day.sections.forEach((sec) => {
       sec.periods.forEach((cell) => {
         if (!cell) return;
+        // Non-teaching periods like exams or revision classes are NOT counted towards teachers' subjects or teaching experience
+        if (isNonTeachingSubject(cell.subject, cell.isExam)) return;
+
         const codes = cell.teacherCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
         const subj = cell.subject.toLowerCase().trim();
 
@@ -208,6 +216,7 @@ export function getTeacherSubjectForSection(
           if (
             cell &&
             !cell.substituteTeacherCode &&
+            !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
             (cell.teacherCode === teacherCode ||
               cell.teacherCode
                 .split(/[/,]/)
@@ -229,6 +238,7 @@ export function getTeacherSubjectForSection(
             if (
               cell &&
               !cell.substituteTeacherCode &&
+              !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
               (cell.teacherCode === teacherCode ||
                 cell.teacherCode
                   .split(/[/,]/)
@@ -249,6 +259,7 @@ export function getTeacherSubjectForSection(
         if (
           cell &&
           !cell.substituteTeacherCode &&
+          !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
           (cell.teacherCode === teacherCode ||
             cell.teacherCode
               .split(/[/,]/)
@@ -266,7 +277,9 @@ export function getTeacherSubjectForSection(
       .split(/[/,]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    return tokens[0] || fallbackSubject;
+    const validToken = tokens.find((t) => !isNonTeachingSubject(t));
+    if (validToken) return validToken;
+    if (!isNonTeachingSubject(fallbackSubject)) return fallbackSubject;
   }
 
   return "Subject";
@@ -357,14 +370,18 @@ export function getMultiTeacherSubstitutionPlan({
         const origTeacher = teachersDirectory[cell.teacherCode] || {
           code: cell.teacherCode,
           dept: "General",
-          subject: cell.subject,
+          subject: !isNonTeachingSubject(cell.subject, cell.isExam)
+            ? cell.subject
+            : (teachersDirectory[cell.teacherCode]?.subject || "Subject"),
         };
 
         const activeSubTeacher = cell.substituteTeacherCode
           ? teachersDirectory[cell.substituteTeacherCode] || {
               code: cell.substituteTeacherCode,
               dept: "General",
-              subject: cell.subject,
+              subject: !isNonTeachingSubject(cell.subject, cell.isExam)
+                ? cell.subject
+                : (teachersDirectory[cell.substituteTeacherCode]?.subject || "Subject"),
             }
           : null;
 

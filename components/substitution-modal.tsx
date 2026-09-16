@@ -10,11 +10,13 @@ import {
   getTodaysFullDate,
   DEFAULT_PERIOD_TIMINGS,
   PeriodTiming,
+  isNonTeachingSubject,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
   SubstitutionRequirement,
   calculateTeacherLoads,
+  getOccupiedTeachersInPeriod,
 } from "../lib/substitution-engine";
 import {
   UserX,
@@ -31,6 +33,9 @@ import {
   Printer,
   Table,
   FileSpreadsheet,
+  Plus,
+  UserPlus,
+  Pencil,
 } from "lucide-react";
 
 interface SubstitutionManagerProps {
@@ -393,6 +398,153 @@ export function SubstitutionManager({
     return map;
   }, [printableReplacements]);
 
+  const [manualEditModal, setManualEditModal] = React.useState<{
+    isOpen: boolean;
+    isNew?: boolean;
+    sectionId: string;
+    periodIndex: number;
+    originalTeacherCode: string;
+    substituteTeacherCode: string;
+    subject: string;
+    originalSubject?: string;
+    reason?: string;
+  } | null>(null);
+
+  const occupiedTeachersInSelectedModalPeriod = React.useMemo(() => {
+    if (!manualEditModal) return new Set<string>();
+    return getOccupiedTeachersInPeriod(currentDayRoutine, manualEditModal.periodIndex);
+  }, [currentDayRoutine, manualEditModal?.periodIndex]);
+
+  const candidateTeachersForModal = React.useMemo(() => {
+    if (!manualEditModal) return [];
+    return allTeachersList
+      .filter((t) => t.code !== manualEditModal.originalTeacherCode)
+      .map((t) => {
+        const load = teacherLoads[t.code]?.dailyLoads[selectedDay] || 0;
+        const isOccupied = occupiedTeachersInSelectedModalPeriod.has(t.code);
+        return {
+          teacher: t,
+          load,
+          isOccupied,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isOccupied !== b.isOccupied) return a.isOccupied ? 1 : -1;
+        if (a.load !== b.load) return a.load - b.load;
+        return a.teacher.code.localeCompare(b.teacher.code);
+      });
+  }, [allTeachersList, manualEditModal, selectedDay, teacherLoads, occupiedTeachersInSelectedModalPeriod]);
+
+  const handleOpenManualModal = (sectionId: string, periodIndex: number) => {
+    const sec = currentDayRoutine.sections.find((s) => s.sectionId === sectionId);
+    const cell = sec?.periods[periodIndex];
+    const subData = substitutedMap.get(`${sectionId}_${periodIndex}`);
+
+    if (subData) {
+      setManualEditModal({
+        isOpen: true,
+        isNew: false,
+        sectionId,
+        periodIndex,
+        originalTeacherCode: subData.originalTeacherCode,
+        substituteTeacherCode: subData.substituteTeacherCode,
+        subject: subData.subject,
+        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
+        reason: subData.reason || "",
+      });
+    } else {
+      const origTeacher = cell?.teacherCode || "";
+      const origSubject = cell?.subject || "";
+      setManualEditModal({
+        isOpen: true,
+        isNew: true,
+        sectionId,
+        periodIndex,
+        originalTeacherCode: origTeacher,
+        substituteTeacherCode: "",
+        subject: origSubject,
+        originalSubject: origSubject,
+        reason: "",
+      });
+    }
+  };
+
+  const handleOpenNewReplacementModal = () => {
+    const defaultSection = currentDayRoutine.sections[0]?.sectionId || "";
+    handleOpenManualModal(defaultSection, 0);
+  };
+
+  const handleModalSectionOrPeriodChange = (newSectionId: string, newPeriodIndex: number) => {
+    const sec = currentDayRoutine.sections.find((s) => s.sectionId === newSectionId);
+    const cell = sec?.periods[newPeriodIndex];
+    const subData = substitutedMap.get(`${newSectionId}_${newPeriodIndex}`);
+
+    if (subData) {
+      setManualEditModal((prev) => prev ? ({
+        ...prev,
+        isNew: false,
+        sectionId: newSectionId,
+        periodIndex: newPeriodIndex,
+        originalTeacherCode: subData.originalTeacherCode,
+        substituteTeacherCode: subData.substituteTeacherCode,
+        subject: subData.subject,
+        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
+        reason: subData.reason || "",
+      }) : null);
+    } else {
+      const origTeacher = cell?.teacherCode || "";
+      const origSubject = cell?.subject || "";
+      setManualEditModal((prev) => prev ? ({
+        ...prev,
+        isNew: true,
+        sectionId: newSectionId,
+        periodIndex: newPeriodIndex,
+        originalTeacherCode: origTeacher,
+        substituteTeacherCode: "",
+        subject: origSubject,
+        originalSubject: origSubject,
+        reason: "",
+      }) : null);
+    }
+  };
+
+  const handleModalSubstituteTeacherChange = (teacherCode: string) => {
+    const teacher = teacherDir[teacherCode];
+    const suggestedSubject =
+      (teacher?.subject && !isNonTeachingSubject(teacher.subject) ? teacher.subject : undefined) ||
+      teacher?.dept ||
+      manualEditModal?.originalSubject ||
+      manualEditModal?.subject ||
+      "";
+    setManualEditModal((prev) => prev ? ({
+      ...prev,
+      substituteTeacherCode: teacherCode,
+      subject: suggestedSubject,
+    }) : null);
+  };
+
+  const handleSaveManualEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualEditModal || !manualEditModal.substituteTeacherCode.trim()) return;
+
+    onApplySubstitution(
+      selectedDay,
+      manualEditModal.periodIndex,
+      manualEditModal.sectionId,
+      manualEditModal.originalTeacherCode,
+      manualEditModal.substituteTeacherCode.trim(),
+      manualEditModal.reason?.trim() || undefined,
+      manualEditModal.subject.trim() || undefined,
+    );
+    setManualEditModal(null);
+  };
+
+  const handleRevertManualEdit = () => {
+    if (!manualEditModal) return;
+    onRevertSubstitution(selectedDay, manualEditModal.periodIndex, manualEditModal.sectionId);
+    setManualEditModal(null);
+  };
+
   const filteredAbsentTeachers = allTeachersList.filter((t) => {
     const matchesSearch =
       searchQuery.trim() === "" ||
@@ -448,6 +600,16 @@ export function SubstitutionManager({
                   <span>Routine Grid</span>
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={handleOpenNewReplacementModal}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-card hover:bg-secondary border border-border text-foreground shadow-xs transition-colors cursor-pointer"
+                title="Manually add a replacement"
+              >
+                <UserPlus className="w-4 h-4 text-primary" />
+                <span>Add Replacement</span>
+              </button>
 
               <button
                 type="button"
@@ -1125,20 +1287,35 @@ export function SubstitutionManager({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onRevertSubstitution(
-                        selectedDay,
-                        sub.periodIndex,
-                        sub.sectionId,
-                      )
-                    }
-                    className="p-1 rounded-lg text-foreground-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
-                    title="Revert this substitution"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenManualModal(
+                          sub.sectionId,
+                          sub.periodIndex,
+                        )
+                      }
+                      className="p-1 rounded-lg text-foreground-muted hover:text-primary hover:bg-secondary transition-colors cursor-pointer"
+                      title="Edit this substitution"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onRevertSubstitution(
+                          selectedDay,
+                          sub.periodIndex,
+                          sub.sectionId,
+                        )
+                      }
+                      className="p-1 rounded-lg text-foreground-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
+                      title="Revert this substitution"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1340,11 +1517,18 @@ export function SubstitutionManager({
                         return (
                           <tr
                             key={`${sub.sectionId}_${sub.periodIndex}`}
-                            className="h-10"
+                            onClick={() =>
+                              handleOpenManualModal(
+                                sub.sectionId,
+                                sub.periodIndex,
+                              )
+                            }
+                            className="h-10 cursor-pointer hover:bg-purple-50/60 transition-colors"
                             style={{
                               backgroundColor:
                                 idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB",
                             }}
+                            title="Click to edit or remove replacement"
                           >
                             <td
                               className="p-1.5 text-center text-[12px] font-bold"
@@ -1590,11 +1774,13 @@ export function SubstitutionManager({
                           return (
                             <td
                               key={pIdx}
-                              className="p-1 text-center"
+                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                              className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-purple-400 hover:z-10 relative transition-all"
                               style={{
                                 border: "1px solid #000000",
                                 backgroundColor: "#F3E8FF",
                               }}
+                              title="Click to edit or remove replacement"
                             >
                               <div className="space-y-0.5">
                                 <div className="font-bold text-[12px] text-black leading-tight">
@@ -1628,11 +1814,13 @@ export function SubstitutionManager({
                           return (
                             <td
                               key={pIdx}
-                              className="p-1.5 text-center text-zinc-300 text-[11px]"
+                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                              className="p-1.5 text-center text-zinc-300 text-[11px] cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
                               style={{
                                 border: "1px solid #000000",
                                 backgroundColor: "#FAFAFA",
                               }}
+                              title="Click to assign replacement"
                             >
                               -
                             </td>
@@ -1642,11 +1830,13 @@ export function SubstitutionManager({
                         return (
                           <td
                             key={pIdx}
-                            className="p-1 text-center"
+                            onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                            className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
                             style={{
                               border: "1px solid #000000",
                               backgroundColor: "#FFFFFF",
                             }}
+                            title="Click to assign or edit replacement"
                           >
                             <div className="space-y-0.5">
                               <div className="font-bold text-[12px] text-black leading-tight">
@@ -1723,6 +1913,217 @@ export function SubstitutionManager({
           </div>
         </div>
       </div>
+
+      {manualEditModal && manualEditModal.isOpen && (
+        <div className="no-print fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">
+                    {manualEditModal.isNew ? "Add Replacement" : "Edit Replacement"}
+                  </h3>
+                  <p className="text-xs text-foreground-muted">
+                    {selectedDay} • {manualEditModal.sectionId} • Period {manualEditModal.periodIndex + 1}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualEditModal(null)}
+                className="p-1.5 rounded-lg hover:bg-secondary text-foreground-muted cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveManualEdit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Section
+                  </label>
+                  <select
+                    value={manualEditModal.sectionId}
+                    onChange={(e) =>
+                      handleModalSectionOrPeriodChange(
+                        e.target.value,
+                        manualEditModal.periodIndex,
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    {currentDayRoutine.sections.map((sec) => (
+                      <option key={sec.sectionId} value={sec.sectionId}>
+                        {sec.sectionId} ({sec.className})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Period
+                  </label>
+                  <select
+                    value={manualEditModal.periodIndex}
+                    onChange={(e) =>
+                      handleModalSectionOrPeriodChange(
+                        manualEditModal.sectionId,
+                        Number(e.target.value),
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6].map((pIdx) => (
+                      <option key={pIdx} value={pIdx}>
+                        Period {pIdx + 1} ({getPeriodTime(pIdx + 1, "")})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-background-secondary border border-border flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[11px] font-medium text-foreground-muted block">
+                    Regular Class
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {manualEditModal.originalSubject || "Free Period"}
+                  </span>
+                  {manualEditModal.originalTeacherCode && (
+                    <span className="text-foreground-muted ml-1.5 font-medium font-mono">
+                      ({manualEditModal.originalTeacherCode}
+                      {teacherDir[manualEditModal.originalTeacherCode]?.dept
+                        ? ` • ${teacherDir[manualEditModal.originalTeacherCode].dept}`
+                        : ""}
+                      )
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-foreground-muted block mb-0.5">
+                    Original Teacher
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.originalTeacherCode}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              originalTeacherCode: e.target.value.toUpperCase(),
+                            }
+                          : null,
+                      )
+                    }
+                    placeholder="e.g. NC"
+                    className="w-20 px-2 py-1 rounded-lg bg-card border border-border text-foreground font-mono uppercase font-bold text-xs outline-hidden focus:ring-1 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="font-semibold text-foreground block mb-1 flex items-center justify-between">
+                    <span>Substitute Teacher</span>
+                    <span className="text-[10px] font-normal text-foreground-muted">
+                      Free teachers listed first
+                    </span>
+                  </label>
+                  <select
+                    value={manualEditModal.substituteTeacherCode}
+                    onChange={(e) => handleModalSubstituteTeacherChange(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    <option value="" disabled>
+                      Select substitute teacher...
+                    </option>
+                    {candidateTeachersForModal.map(({ teacher, load, isOccupied }) => (
+                      <option key={teacher.code} value={teacher.code}>
+                        {teacher.code} - {teacher.subject || teacher.dept} (
+                        {isOccupied ? "Busy" : "Free"} • Load: {load})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Replacement Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.subject}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev ? { ...prev, subject: e.target.value } : null,
+                      )
+                    }
+                    placeholder="e.g. Physics, Higher Math, ICT"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Reason / Remarks (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.reason || ""}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev ? { ...prev, reason: e.target.value } : null,
+                      )
+                    }
+                    placeholder="e.g. Sick leave, Meeting, Exam duty, Exchange"
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                {!manualEditModal.isNew ? (
+                  <button
+                    type="button"
+                    onClick={handleRevertManualEdit}
+                    className="px-3 py-1.5 text-xs font-semibold text-danger hover:bg-danger-bg rounded-xl transition-colors cursor-pointer"
+                  >
+                    Remove Replacement
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setManualEditModal(null)}
+                    className="px-3.5 py-1.5 text-xs rounded-xl bg-secondary text-foreground hover:bg-muted cursor-pointer font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!manualEditModal.substituteTeacherCode.trim()}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 shadow-xs cursor-pointer"
+                  >
+                    {manualEditModal.isNew ? "Apply Replacement" : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {

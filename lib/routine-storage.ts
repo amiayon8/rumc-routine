@@ -641,12 +641,12 @@ export function useRoutineStore() {
           sections: day.sections.map((sec) => {
             if (sec.sectionId !== sectionId) return sec;
             const newPeriods = sec.periods.map((cell, idx) => {
-              if (idx !== periodIndex || !cell) return cell;
-              const originalSubject = cell.originalSubject || cell.subject;
+              if (idx !== periodIndex) return cell;
               const subTeacher =
                 teachers[substituteTeacherCode] ||
                 memoryTeachers[substituteTeacherCode] ||
                 TEACHER_DIRECTORY[substituteTeacherCode];
+              const originalSubject = cell ? (cell.originalSubject || cell.subject) : (newSubject || "Class");
               const resolvedSubject =
                 newSubject ||
                 (subTeacher?.subject && !isNonTeachingSubject(subTeacher.subject)
@@ -655,9 +655,10 @@ export function useRoutineStore() {
                 subTeacher?.dept ||
                 originalSubject;
               return {
-                ...cell,
-                originalSubject,
+                ...(cell || {}),
                 subject: resolvedSubject,
+                teacherCode: originalTeacherCode || (cell ? cell.teacherCode : substituteTeacherCode),
+                originalSubject,
                 substituteTeacherCode,
                 substituteReason: reason || undefined,
                 substituteSubject: resolvedSubject,

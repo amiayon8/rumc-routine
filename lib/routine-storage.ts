@@ -8,6 +8,7 @@ import {
   sortDaysCanonical,
   TeacherInfo,
   TEACHER_DIRECTORY,
+  isNonTeachingSubject,
 } from "./routine-data";
 import {
   fetchRoutineFromSupabase,
@@ -648,7 +649,9 @@ export function useRoutineStore() {
                 TEACHER_DIRECTORY[substituteTeacherCode];
               const resolvedSubject =
                 newSubject ||
-                subTeacher?.subject ||
+                (subTeacher?.subject && !isNonTeachingSubject(subTeacher.subject)
+                  ? subTeacher.subject
+                  : undefined) ||
                 subTeacher?.dept ||
                 originalSubject;
               return {

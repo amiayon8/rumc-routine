@@ -212,3 +212,50 @@ export const TEACHER_DIRECTORY: Record<string, TeacherInfo> = {
   ZC: { code: "ZC", dept: "Chemistry", subject: "Chemistry / Science" },
   ZUR: { code: "ZUR", dept: "Mathematics", subject: "Math" },
 };
+
+/**
+ * Checks if a subject string or cell represents an exam, revision session,
+ * or non-teaching period that should NOT be counted as an official teaching subject
+ * for a teacher from the routine grid.
+ */
+export function isNonTeachingSubject(
+  subject?: string | null,
+  isExam?: boolean
+): boolean {
+  if (isExam) return true;
+  if (!subject) return true;
+
+  const normalized = subject.trim().toLowerCase();
+  if (!normalized) return true;
+
+  // Catch ALL exams and tests across all subjects (e.g., "Math Exam", "Eng 1 Exam", "Sci Exam", "Ban Exam", "Class Test", etc.)
+  if (
+    normalized.includes("exam") ||
+    normalized.includes("examination") ||
+    /\b(test|quiz|assessment|eval|evaluation|midterm|final|ct)\b/i.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  // Revision / review class matches (e.g., "Rev class", "Rev.", "Revision", "Review")
+  if (
+    /\b(rev|rev\.|revision|review)\b/i.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  // Non-academic duties or routine placeholders
+  if (
+    /^(assembly|break|tiffin|recess|free|off|meeting|event|sports(\s*day)?|study|zero\s*period)$/i.test(
+      normalized
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}

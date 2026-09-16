@@ -9,6 +9,7 @@ import {
   TEACHER_DIRECTORY,
   TeacherInfo,
   RoutineCell,
+  isNonTeachingSubject,
 } from "../lib/routine-data";
 import { Printer, User, GraduationCap, Award, X } from "lucide-react";
 
@@ -82,12 +83,19 @@ export function IndividualRoutineView({
               .map((s) => s.trim())
               .filter(Boolean);
             parts.forEach((c) => {
+              const isReal = !isNonTeachingSubject(p.subject, p.isExam);
               if (!teacherMap[c]) {
                 teacherMap[c] = {
                   code: c,
                   dept: "General",
-                  subject: p.subject || "Subject",
+                  subject: isReal && p.subject ? p.subject : "Subject",
                 };
+              } else if (
+                teacherMap[c].subject === "Subject" &&
+                isReal &&
+                p.subject
+              ) {
+                teacherMap[c].subject = p.subject;
               }
             });
           });

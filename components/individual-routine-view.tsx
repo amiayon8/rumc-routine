@@ -11,7 +11,7 @@ import {
   RoutineCell,
   isNonTeachingSubject,
 } from "../lib/routine-data";
-import { Printer, User, GraduationCap, Award, X } from "lucide-react";
+import { Printer, User, GraduationCap, Award, X, Search } from "lucide-react";
 
 interface IndividualRoutineViewProps {
   routineData: DayRoutine[];
@@ -217,6 +217,21 @@ export function IndividualRoutineView({
   const [selectedTeacherCode, setSelectedTeacherCode] = React.useState<string>(
     sortedTeacherCodes[0] || "SM",
   );
+  const [teacherSearchQuery, setTeacherSearchQuery] =
+    React.useState<string>("");
+
+  const filteredTeacherCodes = React.useMemo(() => {
+    if (!teacherSearchQuery.trim()) return sortedTeacherCodes;
+    const q = teacherSearchQuery.toLowerCase();
+    return sortedTeacherCodes.filter((code) => {
+      const t = allTeachers[code];
+      return (
+        code.toLowerCase().includes(q) ||
+        (t?.dept && t.dept.toLowerCase().includes(q)) ||
+        (t?.subject && t.subject.toLowerCase().includes(q))
+      );
+    });
+  }, [sortedTeacherCodes, allTeachers, teacherSearchQuery]);
 
   // ==========================================
   // 2. EXTRACT ALL SECTIONS
@@ -281,30 +296,30 @@ export function IndividualRoutineView({
             </h2>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 self-stretch sm:self-auto w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 self-stretch sm:self-auto w-full sm:w-auto">
             <div className="flex items-center p-1 rounded-2xl bg-background-secondary border border-border">
               <button
                 type="button"
                 onClick={() => setMode("teacher")}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
                   mode === "teacher"
                     ? "bg-card text-primary shadow-xs border border-border/80"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
-                <User className="w-3.5 h-3.5" />
+                <User className="w-4 h-4" />
                 <span>Teacher Routine</span>
               </button>
               <button
                 type="button"
                 onClick={() => setMode("section")}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer flex-1 sm:flex-none ${
                   mode === "section"
                     ? "bg-card text-primary shadow-xs border border-border/80"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
-                <GraduationCap className="w-3.5 h-3.5" />
+                <GraduationCap className="w-4 h-4" />
                 <span>Class Routine</span>
               </button>
             </div>
@@ -312,7 +327,7 @@ export function IndividualRoutineView({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
               title="Print official routine on A4 (Ctrl+P)"
             >
               <Printer className="w-4 h-4" />
@@ -323,54 +338,107 @@ export function IndividualRoutineView({
 
         {/* Dynamic Selector based on selected mode */}
         {mode === "teacher" ? (
-          <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-            <div className="sm:col-span-2">
-              <label className="text-xs font-semibold text-foreground block mb-1.5">
-                Select Teacher ({sortedTeacherCodes.length} Faculty Members
-                Available)
+          <div className="pt-3 border-t border-border space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <label className="text-sm sm:text-base font-bold text-foreground">
+                Select Teacher ({sortedTeacherCodes.length} Faculty Members)
               </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <select
-                    value={selectedTeacherCode}
-                    onChange={(e) => setSelectedTeacherCode(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-xs rounded-xl bg-background-secondary border border-border text-foreground font-semibold outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                  >
-                    {sortedTeacherCodes.map((code) => {
-                      const t = allTeachers[code];
-                      const load = teacherTotalLoads[code]?.total || 0;
-                      return (
-                        <option key={code} value={code}>
-                          {code} ({t?.dept || "General"}) • {load} periods/wk
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+
+              {/* Quick stats badge */}
+              <div className="px-3.5 py-2 rounded-xl bg-background-secondary border border-border flex items-center gap-2 text-xs sm:text-sm">
+                <span className="text-foreground-muted font-medium">Weekly Load:</span>
+                <span className="font-bold text-primary">
+                  {selectedTeacherLoad.total} periods across 5 days
+                </span>
               </div>
             </div>
 
-            {/* Quick stats badge */}
-            <div className="p-2.5 rounded-xl bg-background-secondary border border-border flex items-center justify-between text-xs">
-              <span className="text-foreground-muted">Weekly Load:</span>
-              <span className="font-bold text-primary">
-                {selectedTeacherLoad.total} periods across 5 days
-              </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Senior-Friendly Teacher Search Bar */}
+              <div className="relative">
+                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-subtle" />
+                <input
+                  type="text"
+                  placeholder="Search faculty by acronym, dept, or subject..."
+                  value={teacherSearchQuery}
+                  onChange={(e) => setTeacherSearchQuery(e.target.value)}
+                  className="w-full h-11 sm:h-12 pl-11 pr-10 text-sm sm:text-base font-bold rounded-2xl bg-background-secondary border-2 border-border text-foreground outline-hidden focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all placeholder:font-medium placeholder:text-foreground-subtle"
+                />
+                {teacherSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setTeacherSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-foreground-subtle hover:text-foreground hover:bg-secondary cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filtered Dropdown */}
+              <div className="relative">
+                <select
+                  value={selectedTeacherCode}
+                  onChange={(e) => setSelectedTeacherCode(e.target.value)}
+                  className="w-full h-11 sm:h-12 pl-4 pr-10 text-sm sm:text-base rounded-2xl bg-background-secondary border-2 border-border text-foreground font-bold outline-hidden focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                >
+                  {filteredTeacherCodes.map((code) => {
+                    const t = allTeachers[code];
+                    const load = teacherTotalLoads[code]?.total || 0;
+                    return (
+                      <option key={code} value={code}>
+                        {code} ({t?.dept || "General"}{t?.subject ? ` • ${t.subject}` : ""}) — {load} periods/wk
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
+
+            {/* Quick Clickable Teacher Pills for Search Results */}
+            {teacherSearchQuery.trim() && (
+              <div className="space-y-1.5 pt-1">
+                <div className="text-xs font-bold text-foreground-muted">
+                  Found {filteredTeacherCodes.length} matching faculty:
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-1">
+                  {filteredTeacherCodes.slice(0, 20).map((code) => {
+                    const t = allTeachers[code];
+                    const isSelected = selectedTeacherCode === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => setSelectedTeacherCode(code)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold border-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-background-secondary text-foreground hover:bg-secondary border-border"
+                        }`}
+                      >
+                        <span className="font-mono">{code}</span>
+                        <span className="text-[11px] opacity-80">({t?.subject || t?.dept})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="pt-2 border-t border-border space-y-3">
+          <div className="pt-3 border-t border-border space-y-4">
             {/* Class filter chips */}
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-semibold text-foreground mr-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+              <span className="font-bold text-foreground mr-1">
                 Class Filter:
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedClassFilter("all")}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-medium transition-colors cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
                   selectedClassFilter === "all"
-                    ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                    ? "bg-primary text-primary-foreground shadow-xs"
                     : "bg-background-secondary hover:bg-card border border-border text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -381,9 +449,9 @@ export function IndividualRoutineView({
                   key={cls}
                   type="button"
                   onClick={() => setSelectedClassFilter(cls)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-medium transition-colors cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
                     selectedClassFilter === cls
-                      ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                      ? "bg-primary text-primary-foreground shadow-xs"
                       : "bg-background-secondary hover:bg-card border border-border text-foreground-muted hover:text-foreground"
                   }`}
                 >
@@ -393,16 +461,16 @@ export function IndividualRoutineView({
             </div>
 
             {/* Section pills */}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {filteredSections.map((sec) => (
                 <button
                   key={sec.sectionId}
                   type="button"
                   onClick={() => setSelectedSectionId(sec.sectionId)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-4 py-2 rounded-xl text-sm sm:text-base font-black transition-all cursor-pointer ${
                     selectedSectionId === sec.sectionId
-                      ? "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/20 scale-105"
-                      : "bg-background-secondary hover:bg-card border border-border text-foreground hover:text-primary"
+                      ? "bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/30 scale-105"
+                      : "bg-background-secondary hover:bg-card border-2 border-border text-foreground hover:text-primary"
                   }`}
                 >
                   {sec.sectionId}

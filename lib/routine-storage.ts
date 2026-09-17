@@ -642,7 +642,50 @@ export function useRoutineStore() {
             if (sec.sectionId !== sectionId) return sec;
             const newPeriods = sec.periods.map((cell, idx) => {
               if (idx !== periodIndex || !cell) return cell;
+
+              const rawTeacherCode = (cell.teacherCode || "").trim();
+              const origCodes = rawTeacherCode
+                .split(/[/,]/)
+                .map((c) => c.trim())
+                .filter(Boolean);
+              const isMultiTeacher = origCodes.length > 1;
               const originalSubject = cell.originalSubject || cell.subject;
+
+              // Check if partial replacement in a multi-teacher cell:
+              const isPartialMulti =
+                isMultiTeacher &&
+                originalTeacherCode !== rawTeacherCode &&
+                origCodes.includes(originalTeacherCode);
+
+              if (isPartialMulti) {
+                // Rule: "If one teacher needs replacement, then replace with any teacher for the required teacher without changing subject."
+                const currentActive = cell.substituteTeacherCode || rawTeacherCode;
+                const tokens = currentActive.split("/").map((c) => c.trim());
+                const matchIdx = tokens.indexOf(originalTeacherCode);
+                if (matchIdx !== -1) {
+                  tokens[matchIdx] = substituteTeacherCode;
+                } else {
+                  const origIdx = origCodes.indexOf(originalTeacherCode);
+                  if (origIdx !== -1 && origIdx < tokens.length) {
+                    tokens[origIdx] = substituteTeacherCode;
+                  } else {
+                    tokens.push(substituteTeacherCode);
+                  }
+                }
+
+                const newActiveCode = tokens.join("/");
+                return {
+                  ...cell,
+                  originalSubject,
+                  subject: originalSubject,
+                  substituteTeacherCode: newActiveCode,
+                  substituteReason: reason || undefined,
+                  substituteSubject: originalSubject,
+                };
+              }
+
+              // Rule: "If all teachers of such classes needs change, then replace with a teacher with any subject and subject will be changed too."
+              // Also applies to standard single teacher replacements
               const subTeacher =
                 teachers[substituteTeacherCode] ||
                 memoryTeachers[substituteTeacherCode] ||
@@ -654,6 +697,7 @@ export function useRoutineStore() {
                   : undefined) ||
                 subTeacher?.dept ||
                 originalSubject;
+
               return {
                 ...cell,
                 originalSubject,

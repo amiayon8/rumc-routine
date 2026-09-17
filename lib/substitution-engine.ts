@@ -36,6 +36,11 @@ export interface SubstitutionRequirement {
   candidates: SubstitutionCandidate[];
   recommendedCandidate: SubstitutionCandidate | null;
   assignedCandidate?: SubstitutionCandidate | null;
+  isMultiTeacher?: boolean;
+  isAllAbsent?: boolean;
+  coTeachersPresent?: string[];
+  allOriginalTeacherCodes?: string[];
+  multiTeacherSlotIndex?: number;
 }
 
 export interface TeacherLoadSummary {
@@ -349,6 +354,11 @@ export function getMultiTeacherSubstitutionPlan({
     originalTeacher: TeacherInfo;
     activeSubstituteTeacher?: TeacherInfo | null;
     isAlreadySubstituted: boolean;
+    isMultiTeacher: boolean;
+    isAllAbsent: boolean;
+    coTeachersPresent: string[];
+    allOriginalTeacherCodes: string[];
+    multiTeacherSlotIndex?: number;
   }> = [];
 
   dayRoutine.sections.forEach((sec) => {
@@ -357,38 +367,120 @@ export function getMultiTeacherSubstitutionPlan({
     sec.periods.forEach((cell, pIdx) => {
       if (!cell) return;
 
-      const origCodes = cell.teacherCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
-      const subCodes = cell.substituteTeacherCode
-        ? cell.substituteTeacherCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean)
-        : [];
+      const rawTeacherCode = (cell.teacherCode || "").trim();
+      const origCodes = rawTeacherCode
+        .split(/[/,]/)
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const isMultiTeacher = origCodes.length > 1;
 
-      const matchedOrigAbsent = origCodes.find((c) => isTeacherAbsentInPeriod(c, pIdx));
-      const matchedSubAbsent = subCodes.find((c) => isTeacherAbsentInPeriod(c, pIdx));
-      const matchedAbsent = matchedSubAbsent || matchedOrigAbsent;
+      if (!isMultiTeacher) {
+        const singleCode = origCodes[0] || rawTeacherCode;
+        const subCode = cell.substituteTeacherCode?.trim();
+        const isOrigAbsent = isTeacherAbsentInPeriod(singleCode, pIdx);
+        const isSubAbsent = subCode ? isTeacherAbsentInPeriod(subCode, pIdx) : false;
 
-      if (matchedAbsent) {
-        const origTeacher = teachersDirectory[cell.teacherCode] || {
-          code: cell.teacherCode,
-          dept: "General",
-          subject: !isNonTeachingSubject(cell.subject, cell.isExam)
-            ? cell.subject
-            : (teachersDirectory[cell.teacherCode]?.subject || "Subject"),
+        if (isOrigAbsent || isSubAbsent) {
+          const origTeacher = teachersDirectory[singleCode] || {
+            code: singleCode,
+            dept: "General",
+            subject: !isNonTeachingSubject(cell.subject, cell.isExam)
+              ? cell.subject
+              : "Subject",
+          };
+          const activeSubTeacher = subCode
+            ? teachersDirectory[subCode] || {
+                code: subCode,
+                dept: "General",
+                subject: !isNonTeachingSubject(cell.subject, cell.isExam)
+                  ? cell.subject
+                  : "Subject",
+              }
+            : null;
+          const originalSubject = cell.originalSubject || cell.subject;
+
+          rawRequirements.push({
+            id: `${sec.sectionId}_p${pIdx}_${singleCode}`,
+            sectionId: sec.sectionId,
+            className: sec.className,
+            sectionName: sec.sectionName,
+            periodIndex: pIdx,
+            periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
+            periodTime: periodTimes[pIdx] || "",
+            subject: originalSubject,
+            originalSubject,
+            originalTeacher: origTeacher,
+            activeSubstituteTeacher: activeSubTeacher,
+            isAlreadySubstituted: !!cell.substituteTeacherCode,
+            isMultiTeacher: false,
+            isAllAbsent: false,
+            coTeachersPresent: [],
+            allOriginalTeacherCodes: [singleCode],
+          });
+        }
+        return;
+      }
+
+      // Multi-teacher handling: determine current active codes per slot
+      let currentCodes: string[] = [];
+      if (cell.substituteTeacherCode) {
+        if (cell.substituteTeacherCode.includes("/")) {
+          currentCodes = cell.substituteTeacherCode.split("/").map((c) => c.trim()).filter(Boolean);
+        } else {
+          currentCodes = [cell.substituteTeacherCode.trim()];
+        }
+      } else {
+        currentCodes = [...origCodes];
+      }
+
+      const absentSlotIndices: number[] = [];
+      const presentSlotIndices: number[] = [];
+
+      if (
+        currentCodes.length === 1 &&
+        currentCodes[0] !== rawTeacherCode &&
+        !origCodes.includes(currentCodes[0])
+      ) {
+        // Previously replaced all teachers with a single substitute
+        if (isTeacherAbsentInPeriod(currentCodes[0], pIdx)) {
+          absentSlotIndices.push(0);
+        }
+      } else {
+        origCodes.forEach((origCode, idx) => {
+          const currCode = currentCodes[idx] || origCode;
+          if (isTeacherAbsentInPeriod(currCode, pIdx) || isTeacherAbsentInPeriod(origCode, pIdx)) {
+            absentSlotIndices.push(idx);
+          } else {
+            presentSlotIndices.push(idx);
+          }
+        });
+      }
+
+      if (absentSlotIndices.length === 0) return;
+
+      const originalSubject = cell.originalSubject || cell.subject;
+      const isAllAbsent =
+        absentSlotIndices.length === origCodes.length ||
+        (currentCodes.length === 1 && absentSlotIndices.length === 1);
+
+      if (isAllAbsent) {
+        // Case A: ALL teachers need change -> Replace with 1 teacher with any subject, subject will change
+        const origTeacher: TeacherInfo = {
+          code: rawTeacherCode,
+          dept: "Multiple",
+          subject: originalSubject,
         };
-
-        const activeSubTeacher = cell.substituteTeacherCode
-          ? teachersDirectory[cell.substituteTeacherCode] || {
-              code: cell.substituteTeacherCode,
-              dept: "General",
-              subject: !isNonTeachingSubject(cell.subject, cell.isExam)
-                ? cell.subject
-                : (teachersDirectory[cell.substituteTeacherCode]?.subject || "Subject"),
-            }
-          : null;
-
-        const originalSubject = cell.originalSubject || cell.subject;
+        const activeSubTeacher =
+          cell.substituteTeacherCode && !cell.substituteTeacherCode.includes("/")
+            ? teachersDirectory[cell.substituteTeacherCode] || {
+                code: cell.substituteTeacherCode,
+                dept: "General",
+                subject: cell.subject,
+              }
+            : null;
 
         rawRequirements.push({
-          id: `${sec.sectionId}_p${pIdx}_${matchedAbsent}`,
+          id: `${sec.sectionId}_p${pIdx}_all_${rawTeacherCode}`,
           sectionId: sec.sectionId,
           className: sec.className,
           sectionName: sec.sectionName,
@@ -399,7 +491,52 @@ export function getMultiTeacherSubstitutionPlan({
           originalSubject,
           originalTeacher: origTeacher,
           activeSubstituteTeacher: activeSubTeacher,
-          isAlreadySubstituted: !!cell.substituteTeacherCode,
+          isAlreadySubstituted: !!cell.substituteTeacherCode && !cell.substituteTeacherCode.includes("/"),
+          isMultiTeacher: true,
+          isAllAbsent: true,
+          coTeachersPresent: [],
+          allOriginalTeacherCodes: origCodes,
+        });
+      } else {
+        // Case B: One or some (not all) teachers need change -> Replace for the required teacher without changing subject
+        const coTeachersPresent = presentSlotIndices.map((i) => currentCodes[i] || origCodes[i]);
+
+        absentSlotIndices.forEach((slotIdx) => {
+          const absentCode = origCodes[slotIdx];
+          const currSlotCode = currentCodes[slotIdx] || absentCode;
+          const origTeacher = teachersDirectory[absentCode] || {
+            code: absentCode,
+            dept: "General",
+            subject: originalSubject,
+          };
+          const activeSubTeacher =
+            currSlotCode !== absentCode
+              ? teachersDirectory[currSlotCode] || {
+                  code: currSlotCode,
+                  dept: "General",
+                  subject: originalSubject,
+                }
+              : null;
+
+          rawRequirements.push({
+            id: `${sec.sectionId}_p${pIdx}_slot${slotIdx}_${absentCode}`,
+            sectionId: sec.sectionId,
+            className: sec.className,
+            sectionName: sec.sectionName,
+            periodIndex: pIdx,
+            periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
+            periodTime: periodTimes[pIdx] || "",
+            subject: originalSubject,
+            originalSubject,
+            originalTeacher: origTeacher,
+            activeSubstituteTeacher: activeSubTeacher,
+            isAlreadySubstituted: currSlotCode !== absentCode,
+            isMultiTeacher: true,
+            isAllAbsent: false,
+            coTeachersPresent,
+            allOriginalTeacherCodes: origCodes,
+            multiTeacherSlotIndex: slotIdx,
+          });
         });
       }
     });
@@ -432,6 +569,12 @@ export function getMultiTeacherSubstitutionPlan({
 
     // Cannot assign if candidate is the original teacher being substituted
     if (cand.code === req.originalTeacher.code) return null;
+
+    // In multi-teacher all-absent, candidate cannot be any of the original absent co-teachers
+    if (req.isAllAbsent && req.allOriginalTeacherCodes?.includes(cand.code)) return null;
+
+    // In multi-teacher partial replacement, candidate cannot be one of the present co-teachers in this class
+    if (req.coTeachersPresent?.includes(cand.code)) return null;
 
     // Cannot assign if not in allowed pool
     if (allowedSet && !allowedSet.has(cand.code)) return null;
@@ -492,30 +635,79 @@ export function getMultiTeacherSubstitutionPlan({
       matchReasons.push("Currently Active Substitute");
     }
 
-    // 1. Takes this exact class & subject
-    if (takesExactSection && takesThisSubject) {
-      score += 250;
-      matchReasons.push(`Takes ${req.sectionId} ${req.subject}`);
-    } else if (takesThisGradeLevel && takesThisSubject) {
-      score += 190;
-      matchReasons.push(`Takes ${req.className} ${req.subject}`);
-    } else if (takesThisSubject) {
-      score += 130;
-      matchReasons.push(`Teaches ${req.subject}`);
-    } else if (isSameDept) {
-      score += 70;
-      matchReasons.push(`Same Department (${cand.dept})`);
-    } else {
-      score += 20;
-      matchReasons.push("General Substitution");
-    }
+    // Determine suggestedSubject and scoring based on multi-teacher rules
+    let suggestedSubject: string;
 
-    if (takesExactSection && !matchReasons.some((r) => r.includes("Takes " + req.sectionId))) {
-      score += 60;
-      matchReasons.push(`Takes other subjects in ${req.sectionId}`);
-    } else if (takesThisGradeLevel && !matchReasons.some((r) => r.includes(req.className))) {
-      score += 30;
-      matchReasons.push(`Familiar with ${req.className}`);
+    if (req.isMultiTeacher && !req.isAllAbsent) {
+      // Rule: "If one teacher needs replacement, then replace with any teacher for the required teacher without changing subject."
+      suggestedSubject = req.originalSubject || req.subject;
+
+      score += 150;
+      matchReasons.push(`Co-Teaching Support (${req.subject} maintained)`);
+
+      if (cand.dept.toLowerCase().trim() === req.originalTeacher.dept.toLowerCase().trim()) {
+        score += 40;
+        matchReasons.push(`Same Department (${cand.dept})`);
+      }
+      if (takesThisClass) {
+        score += 30;
+        matchReasons.push(`Familiar with ${req.className}`);
+      }
+    } else if (req.isMultiTeacher && req.isAllAbsent) {
+      // Rule: "If all teachers of such classes needs change, then replace with a teacher with any subject and subject will be changed too."
+      suggestedSubject = getTeacherSubjectForSection(
+        routineData,
+        cand.code,
+        req.sectionId,
+        req.className,
+        cand.subject || cand.dept || req.subject
+      );
+
+      score += 130;
+      matchReasons.push(`Full Class Cover (Subject: ${suggestedSubject})`);
+
+      if (takesThisClass) {
+        score += 40;
+        matchReasons.push(`Familiar with ${req.className}`);
+      }
+      if (isSameDept) {
+        score += 30;
+        matchReasons.push(`Same Department (${cand.dept})`);
+      }
+    } else {
+      // Standard single teacher evaluation
+      suggestedSubject = getTeacherSubjectForSection(
+        routineData,
+        cand.code,
+        req.sectionId,
+        req.className,
+        cand.subject || cand.dept || req.subject
+      );
+
+      if (takesExactSection && takesThisSubject) {
+        score += 250;
+        matchReasons.push(`Takes ${req.sectionId} ${req.subject}`);
+      } else if (takesThisGradeLevel && takesThisSubject) {
+        score += 190;
+        matchReasons.push(`Takes ${req.className} ${req.subject}`);
+      } else if (takesThisSubject) {
+        score += 130;
+        matchReasons.push(`Teaches ${req.subject}`);
+      } else if (isSameDept) {
+        score += 70;
+        matchReasons.push(`Same Department (${cand.dept})`);
+      } else {
+        score += 20;
+        matchReasons.push("General Substitution");
+      }
+
+      if (takesExactSection && !matchReasons.some((r) => r.includes("Takes " + req.sectionId))) {
+        score += 60;
+        matchReasons.push(`Takes other subjects in ${req.sectionId}`);
+      } else if (takesThisGradeLevel && !matchReasons.some((r) => r.includes(req.className))) {
+        score += 30;
+        matchReasons.push(`Familiar with ${req.className}`);
+      }
     }
 
     // Workload balancing
@@ -527,14 +719,6 @@ export function getMultiTeacherSubstitutionPlan({
       score += Math.max(0, (maxDailyLoad - currentLoad) * 25);
       matchReasons.push(`Current load: ${currentLoad} classes`);
     }
-
-    const suggestedSubject = getTeacherSubjectForSection(
-      routineData,
-      cand.code,
-      req.sectionId,
-      req.className,
-      cand.subject || cand.dept || req.subject
-    );
 
     return {
       teacher: cand,
@@ -598,6 +782,11 @@ export function getMultiTeacherSubstitutionPlan({
       originalTeacher: req.originalTeacher,
       activeSubstituteTeacher: req.activeSubstituteTeacher,
       isAlreadySubstituted: req.isAlreadySubstituted,
+      isMultiTeacher: req.isMultiTeacher,
+      isAllAbsent: req.isAllAbsent,
+      coTeachersPresent: req.coTeachersPresent,
+      allOriginalTeacherCodes: req.allOriginalTeacherCodes,
+      multiTeacherSlotIndex: req.multiTeacherSlotIndex,
       candidates: candidateList,
       recommendedCandidate: bestCandidate,
       assignedCandidate,

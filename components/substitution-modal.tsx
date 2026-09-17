@@ -18,7 +18,6 @@ import {
 } from "../lib/substitution-engine";
 import {
   UserX,
-  Sparkles,
   CheckCircle,
   AlertTriangle,
   RotateCcw,
@@ -446,10 +445,10 @@ export function SubstitutionManager({
       const suggestedSubSubject = isCoTeachingPartial
         ? req.originalSubject || req.subject
         : selectedCandidate?.suggestedSubject ||
-          selectedCandidate?.teacher.subject ||
-          selectedCandidate?.teacher.dept ||
-          req.originalSubject ||
-          req.subject;
+        selectedCandidate?.teacher.subject ||
+        selectedCandidate?.teacher.dept ||
+        req.originalSubject ||
+        req.subject;
       const effectiveSubject =
         manualSubjects[req.id] !== undefined
           ? manualSubjects[req.id]
@@ -778,7 +777,6 @@ export function SubstitutionManager({
                   onClick={handleAutoAssignAll}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
                   <span>Review & Apply Roster ({requirements.length})</span>
                 </button>
               )}
@@ -1499,10 +1497,10 @@ export function SubstitutionManager({
                 const suggestedSubSubject = isCoTeachingPartial
                   ? req.originalSubject || req.subject
                   : selectedCandidate?.suggestedSubject ||
-                    selectedCandidate?.teacher.subject ||
-                    selectedCandidate?.teacher.dept ||
-                    req.originalSubject ||
-                    req.subject;
+                  selectedCandidate?.teacher.subject ||
+                  selectedCandidate?.teacher.dept ||
+                  req.originalSubject ||
+                  req.subject;
                 const effectiveSubject =
                   manualSubjects[req.id] !== undefined
                     ? manualSubjects[req.id]

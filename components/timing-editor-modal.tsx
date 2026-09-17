@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { PeriodTiming, DEFAULT_PERIOD_TIMINGS } from "../lib/routine-types";
-import { Clock, RotateCcw, X, Check, Sparkles } from "lucide-react";
+import { Clock, RotateCcw, X, Check } from "lucide-react";
 
 interface TimingEditorModalProps {
   isOpen: boolean;
@@ -101,7 +101,6 @@ function TimingEditorContent({
         {/* Quick Schedule Presets */}
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-background-secondary border border-border text-xs">
           <span className="font-semibold text-foreground flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             Quick Presets:
           </span>
           <button
@@ -136,20 +135,18 @@ function TimingEditorContent({
               return (
                 <div
                   key={timing.index}
-                  className={`p-3 rounded-2xl border transition-all ${
-                    isBreak
-                      ? "bg-amber-500/5 border-amber-500/30 dark:bg-amber-500/10"
-                      : "bg-background-secondary border-border"
-                  }`}
+                  className={`p-3 rounded-2xl border transition-all ${isBreak
+                    ? "bg-amber-500/5 border-amber-500/30 dark:bg-amber-500/10"
+                    : "bg-background-secondary border-border"
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <span
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold ${
-                          isBreak
-                            ? "bg-amber-500 text-white"
-                            : "bg-primary text-primary-foreground"
-                        }`}
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold ${isBreak
+                          ? "bg-amber-500 text-white"
+                          : "bg-primary text-primary-foreground"
+                          }`}
                       >
                         {isBreak ? "B" : timing.index}
                       </span>

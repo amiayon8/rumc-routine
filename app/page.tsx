@@ -120,6 +120,8 @@ export default function Home() {
             onRemoveTeacher={removeTeacher}
             onEditTeacher={editTeacher}
             onResetTeachers={resetTeachers}
+            onApplySubstitution={applySubstitution}
+            onRevertSubstitution={revertSubstitution}
           />
         )}
 

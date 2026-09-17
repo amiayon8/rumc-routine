@@ -9,7 +9,9 @@ import {
   getTodaysFullDate,
   sortDaysCanonical,
   TeacherInfo,
+  TEACHER_DIRECTORY,
 } from "../lib/routine-data";
+import { getTeacherSubjectForSection } from "../lib/substitution-engine";
 import { TimingEditorModal } from "./timing-editor-modal";
 import { ClassManagerModal } from "./class-manager-modal";
 import { TeacherManagerModal } from "./teacher-manager-modal";
@@ -27,6 +29,7 @@ import {
   GraduationCap,
   SlidersHorizontal,
   ChevronDown,
+  Plus,
 } from "lucide-react";
 
 interface PdfRoutineViewProps {
@@ -79,6 +82,20 @@ interface PdfRoutineViewProps {
   onAddClass?: (className: string, initialSectionName?: string) => boolean;
   onRenameClass?: (oldClassName: string, newClassName: string) => boolean;
   onDeleteClass?: (className: string) => void;
+  onApplySubstitution?: (
+    dayName: string,
+    periodIndex: number,
+    sectionId: string,
+    originalTeacherCode: string,
+    substituteTeacherCode: string,
+    reason?: string,
+    newSubject?: string,
+  ) => void;
+  onRevertSubstitution?: (
+    dayName: string,
+    periodIndex: number,
+    sectionId: string,
+  ) => void;
 }
 
 export function PdfRoutineView({
@@ -105,6 +122,8 @@ export function PdfRoutineView({
   onRemoveTeacher,
   onEditTeacher,
   onResetTeachers,
+  onApplySubstitution,
+  onRevertSubstitution,
 }: PdfRoutineViewProps) {
   const [printAllDays, setPrintAllDays] = React.useState<boolean>(false);
   const [searchFilter, setSearchFilter] = React.useState<string>("");
@@ -120,6 +139,7 @@ export function PdfRoutineView({
     periodIndex: number;
     cell: RoutineCell | null;
   } | null>(null);
+  const [isAssigningSub, setIsAssigningSub] = React.useState<boolean>(false);
 
   const [isToolsOpen, setIsToolsOpen] = React.useState<boolean>(false);
   const toolsRef = React.useRef<HTMLDivElement | null>(null);
@@ -186,6 +206,7 @@ export function PdfRoutineView({
     periodIndex: number,
     sectionId: string,
     day: string,
+    className?: string,
   ) => {
     const isHighlighted =
       searchFilter.trim() !== "" &&
@@ -200,16 +221,18 @@ export function PdfRoutineView({
     return (
       <td
         key={periodIndex}
-        onClick={() =>
+        onClick={() => {
           setEditingCell({
             day,
             sectionId,
             periodIndex,
             cell,
-          })
-        }
-        className={`routine-cell py-0.5 px-0.5 text-center align-middle cursor-pointer transition-colors ${isHighlighted ? "bg-amber-200 text-black font-bold" : ""
-          }`}
+          });
+          setIsAssigningSub(Boolean(cell?.substituteTeacherCode));
+        }}
+        className={`routine-cell py-0.5 px-0.5 text-center align-middle cursor-pointer transition-colors ${
+          isHighlighted ? "bg-amber-200 text-black font-bold" : ""
+        }`}
         style={{
           border: "1px solid #000000",
           backgroundColor: isHighlighted
@@ -226,7 +249,22 @@ export function PdfRoutineView({
               <>
                 <div className="leading-tight">
                   <span className="font-semibold text-black">
-                    {cell.subject}
+                    {cell.substituteSubject ||
+                      (cell.subject && cell.subject !== cell.originalSubject
+                        ? cell.subject
+                        : getTeacherSubjectForSection(
+                            routineData,
+                            cell.substituteTeacherCode,
+                            sectionId,
+                            className || "",
+                            (teachers || TEACHER_DIRECTORY)[
+                              cell.substituteTeacherCode
+                            ]?.subject ||
+                              (teachers || TEACHER_DIRECTORY)[
+                                cell.substituteTeacherCode
+                              ]?.dept ||
+                              cell.subject,
+                          ))}
                   </span>
                   <span className="text-black font-medium"> - </span>
                   <span className="font-bold text-purple-900">
@@ -857,6 +895,7 @@ export function PdfRoutineView({
                                   periodIndex,
                                   sec.sectionId,
                                   dayRoutine.day,
+                                  sec.className,
                                 ),
                               )}
 
@@ -888,6 +927,7 @@ export function PdfRoutineView({
                                   periodIndex,
                                   sec.sectionId,
                                   dayRoutine.day,
+                                  sec.className,
                                 ),
                               )}
                             </>
@@ -961,18 +1001,69 @@ export function PdfRoutineView({
                 const form = e.currentTarget;
                 const subject = (
                   form.elements.namedItem("subject") as HTMLInputElement
-                ).value.trim();
+                )?.value.trim();
                 const teacherCode = (
                   form.elements.namedItem("teacherCode") as HTMLInputElement
-                ).value.trim();
+                )?.value.trim();
+                const subTeacherCode = (
+                  form.elements.namedItem("substituteTeacherCode") as HTMLInputElement
+                )?.value.trim();
+                const subSubject = (
+                  form.elements.namedItem("substituteSubject") as HTMLInputElement
+                )?.value.trim();
+                const subReason = (
+                  form.elements.namedItem("substituteReason") as HTMLInputElement
+                )?.value.trim();
+
                 if (!subject || !teacherCode) {
+                  if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                    onRevertSubstitution(
+                      editingCell.day,
+                      editingCell.periodIndex,
+                      editingCell.sectionId,
+                    );
+                  }
                   onUpdateCell(
                     editingCell.day,
                     editingCell.sectionId,
                     editingCell.periodIndex,
                     null,
                   );
+                } else if (subTeacherCode) {
+                  if (onApplySubstitution) {
+                    onApplySubstitution(
+                      editingCell.day,
+                      editingCell.periodIndex,
+                      editingCell.sectionId,
+                      teacherCode,
+                      subTeacherCode,
+                      subReason || undefined,
+                      subSubject || subject,
+                    );
+                  } else {
+                    onUpdateCell(
+                      editingCell.day,
+                      editingCell.sectionId,
+                      editingCell.periodIndex,
+                      {
+                        subject: subSubject || subject,
+                        originalSubject: editingCell.cell?.originalSubject || subject,
+                        teacherCode,
+                        room: editingCell.cell?.room,
+                        substituteTeacherCode: subTeacherCode,
+                        substituteSubject: subSubject || subject,
+                        substituteReason: subReason || undefined,
+                      },
+                    );
+                  }
                 } else {
+                  if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                    onRevertSubstitution(
+                      editingCell.day,
+                      editingCell.periodIndex,
+                      editingCell.sectionId,
+                    );
+                  }
                   onUpdateCell(
                     editingCell.day,
                     editingCell.sectionId,
@@ -981,9 +1072,10 @@ export function PdfRoutineView({
                       subject,
                       teacherCode,
                       room: editingCell.cell?.room,
-                      substituteTeacherCode:
-                        editingCell.cell?.substituteTeacherCode,
+                      substituteTeacherCode: undefined,
+                      substituteSubject: undefined,
                       substituteReason: undefined,
+                      originalSubject: undefined,
                     },
                   );
                 }
@@ -997,7 +1089,7 @@ export function PdfRoutineView({
                 </label>
                 <input
                   name="subject"
-                  defaultValue={editingCell.cell?.subject || ""}
+                  defaultValue={editingCell.cell?.originalSubject || editingCell.cell?.subject || ""}
                   placeholder="e.g. Physics, Higher Math, ICT"
                   className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
                 />
@@ -1005,7 +1097,7 @@ export function PdfRoutineView({
 
               <div>
                 <label className="font-medium text-foreground block mb-1">
-                  Teacher Acronym
+                  Regular Teacher Acronym
                 </label>
                 <input
                   name="teacherCode"
@@ -1015,36 +1107,94 @@ export function PdfRoutineView({
                 />
               </div>
 
-              {editingCell.cell?.substituteTeacherCode && (
-                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-purple-700 dark:text-purple-300">
-                      Sub: {editingCell.cell.substituteTeacherCode}
+              {isAssigningSub ? (
+                <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-purple-700 dark:text-purple-300">
+                      Replacement Teacher
                     </span>
-                    <span className="text-foreground-muted ml-1">
-                      (for {editingCell.cell.teacherCode})
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAssigningSub(false);
+                        if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                          onRevertSubstitution(
+                            editingCell.day,
+                            editingCell.periodIndex,
+                            editingCell.sectionId,
+                          );
+                        }
+                        if (editingCell.cell) {
+                          onUpdateCell(
+                            editingCell.day,
+                            editingCell.sectionId,
+                            editingCell.periodIndex,
+                            {
+                              ...editingCell.cell,
+                              substituteTeacherCode: undefined,
+                              substituteReason: undefined,
+                              substituteSubject: undefined,
+                              subject: editingCell.cell.originalSubject || editingCell.cell.subject,
+                              originalSubject: undefined,
+                            },
+                          );
+                        }
+                      }}
+                      className="text-[11px] font-semibold text-danger hover:underline cursor-pointer"
+                    >
+                      Remove Replacement
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateCell(
-                        editingCell.day,
-                        editingCell.sectionId,
-                        editingCell.periodIndex,
-                        {
-                          ...editingCell.cell!,
-                          substituteTeacherCode: undefined,
-                          substituteReason: undefined,
-                        },
-                      );
-                      setEditingCell(null);
-                    }}
-                    className="px-2 py-1 text-[11px] font-semibold text-danger hover:bg-danger-bg rounded-lg transition-colors cursor-pointer"
-                  >
-                    Remove Sub
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-medium text-purple-900 dark:text-purple-200 block mb-1">
+                        Substitute Acronym
+                      </label>
+                      <input
+                        name="substituteTeacherCode"
+                        defaultValue={editingCell.cell?.substituteTeacherCode || ""}
+                        placeholder="e.g. RH"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-purple-300 dark:border-purple-700 text-foreground font-mono uppercase font-bold text-xs outline-hidden focus:ring-1 focus:ring-purple-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-purple-900 dark:text-purple-200 block mb-1">
+                        Replacement Subject
+                      </label>
+                      <input
+                        name="substituteSubject"
+                        defaultValue={
+                          editingCell.cell?.substituteSubject ||
+                          (editingCell.cell?.substituteTeacherCode
+                            ? editingCell.cell.subject
+                            : "")
+                        }
+                        placeholder="e.g. Biology"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-purple-300 dark:border-purple-700 text-foreground text-xs outline-hidden focus:ring-1 focus:ring-purple-400"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-purple-900 dark:text-purple-200 block mb-1">
+                      Reason / Remarks (Optional)
+                    </label>
+                    <input
+                      name="substituteReason"
+                      defaultValue={editingCell.cell?.substituteReason || ""}
+                      placeholder="e.g. Sick leave, Meeting, Exam duty"
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-purple-300 dark:border-purple-700 text-foreground text-xs outline-hidden focus:ring-1 focus:ring-purple-400"
+                    />
+                  </div>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAssigningSub(true)}
+                  className="w-full py-2 px-3 rounded-xl border border-dashed border-purple-300 dark:border-purple-700/50 hover:bg-purple-500/5 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Assign Replacement Teacher</span>
+                </button>
               )}
 
               <div className="flex items-center justify-between pt-3 border-t border-border">

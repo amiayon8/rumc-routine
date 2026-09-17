@@ -1386,6 +1386,9 @@ export function IndividualRoutineView({
                           ...editingCell.cell!,
                           substituteTeacherCode: undefined,
                           substituteReason: undefined,
+                          substituteSubject: undefined,
+                          subject: editingCell.cell!.originalSubject || editingCell.cell!.subject,
+                          originalSubject: undefined,
                         },
                       );
                       setEditingCell(null);

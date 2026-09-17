@@ -10,11 +10,13 @@ import {
   getTodaysFullDate,
   DEFAULT_PERIOD_TIMINGS,
   PeriodTiming,
+  isNonTeachingSubject,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
   SubstitutionRequirement,
   calculateTeacherLoads,
+  getOccupiedTeachersInPeriod,
 } from "../lib/substitution-engine";
 import {
   UserX,
@@ -32,6 +34,9 @@ import {
   FileSpreadsheet,
   ShieldCheck,
   ClipboardCheck,
+  Plus,
+  UserPlus,
+  Pencil,
 } from "lucide-react";
 
 interface SubstitutionManagerProps {
@@ -110,6 +115,9 @@ export function SubstitutionManager({
   const [isConfirmRosterOpen, setIsConfirmRosterOpen] =
     React.useState<boolean>(false);
   const [successNotice, setSuccessNotice] = React.useState<string | null>(null);
+  const [printViewMode, setPrintViewMode] = React.useState<"table" | "grid">(
+    "table",
+  );
 
   const teacherDir = teachers || TEACHER_DIRECTORY;
 
@@ -694,6 +702,152 @@ export function SubstitutionManager({
     return map;
   }, [printableReplacements]);
 
+  const [manualEditModal, setManualEditModal] = React.useState<{
+    isOpen: boolean;
+    isNew?: boolean;
+    sectionId: string;
+    periodIndex: number;
+    originalTeacherCode: string;
+    substituteTeacherCode: string;
+    subject: string;
+    originalSubject?: string;
+    reason?: string;
+  } | null>(null);
+
+  const occupiedTeachersInSelectedModalPeriod = React.useMemo(() => {
+    if (!manualEditModal) return new Set<string>();
+    return getOccupiedTeachersInPeriod(currentDayRoutine, manualEditModal.periodIndex);
+  }, [currentDayRoutine, manualEditModal?.periodIndex]);
+
+  const candidateTeachersForModal = React.useMemo(() => {
+    if (!manualEditModal) return [];
+    return allTeachersList
+      .filter((t) => t.code !== manualEditModal.originalTeacherCode)
+      .map((t) => {
+        const load = teacherLoads[t.code]?.dailyLoads[selectedDay] || 0;
+        const isOccupied = occupiedTeachersInSelectedModalPeriod.has(t.code);
+        return {
+          teacher: t,
+          load,
+          isOccupied,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isOccupied !== b.isOccupied) return a.isOccupied ? 1 : -1;
+        if (a.load !== b.load) return a.load - b.load;
+        return a.teacher.code.localeCompare(b.teacher.code);
+      });
+  }, [allTeachersList, manualEditModal, selectedDay, teacherLoads, occupiedTeachersInSelectedModalPeriod]);
+
+  const handleOpenManualModal = (sectionId: string, periodIndex: number) => {
+    const sec = currentDayRoutine.sections.find((s) => s.sectionId === sectionId);
+    const cell = sec?.periods[periodIndex];
+    const subData = substitutedMap.get(`${sectionId}_${periodIndex}`);
+
+    if (subData) {
+      setManualEditModal({
+        isOpen: true,
+        isNew: false,
+        sectionId,
+        periodIndex,
+        originalTeacherCode: subData.originalTeacherCode,
+        substituteTeacherCode: subData.substituteTeacherCode,
+        subject: subData.subject,
+        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
+        reason: subData.reason || "",
+      });
+    } else {
+      const origTeacher = cell?.teacherCode || "";
+      const origSubject = cell?.subject || "";
+      setManualEditModal({
+        isOpen: true,
+        isNew: true,
+        sectionId,
+        periodIndex,
+        originalTeacherCode: origTeacher,
+        substituteTeacherCode: "",
+        subject: origSubject,
+        originalSubject: origSubject,
+        reason: "",
+      });
+    }
+  };
+
+  const handleOpenNewReplacementModal = () => {
+    const defaultSection = currentDayRoutine.sections[0]?.sectionId || "";
+    handleOpenManualModal(defaultSection, 0);
+  };
+
+  const handleModalSectionOrPeriodChange = (newSectionId: string, newPeriodIndex: number) => {
+    const sec = currentDayRoutine.sections.find((s) => s.sectionId === newSectionId);
+    const cell = sec?.periods[newPeriodIndex];
+    const subData = substitutedMap.get(`${newSectionId}_${newPeriodIndex}`);
+
+    if (subData) {
+      setManualEditModal((prev) => prev ? ({
+        ...prev,
+        isNew: false,
+        sectionId: newSectionId,
+        periodIndex: newPeriodIndex,
+        originalTeacherCode: subData.originalTeacherCode,
+        substituteTeacherCode: subData.substituteTeacherCode,
+        subject: subData.subject,
+        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
+        reason: subData.reason || "",
+      }) : null);
+    } else {
+      const origTeacher = cell?.teacherCode || "";
+      const origSubject = cell?.subject || "";
+      setManualEditModal((prev) => prev ? ({
+        ...prev,
+        isNew: true,
+        sectionId: newSectionId,
+        periodIndex: newPeriodIndex,
+        originalTeacherCode: origTeacher,
+        substituteTeacherCode: "",
+        subject: origSubject,
+        originalSubject: origSubject,
+        reason: "",
+      }) : null);
+    }
+  };
+
+  const handleModalSubstituteTeacherChange = (teacherCode: string) => {
+    const teacher = teacherDir[teacherCode];
+    const suggestedSubject =
+      (teacher?.subject && !isNonTeachingSubject(teacher.subject) ? teacher.subject : undefined) ||
+      teacher?.dept ||
+      manualEditModal?.originalSubject ||
+      manualEditModal?.subject ||
+      "";
+    setManualEditModal((prev) => prev ? ({
+      ...prev,
+      substituteTeacherCode: teacherCode,
+      subject: suggestedSubject,
+    }) : null);
+  };
+
+  const handleSaveManualEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualEditModal || !manualEditModal.substituteTeacherCode.trim()) return;
+
+    onApplySubstitution(
+      selectedDay,
+      manualEditModal.periodIndex,
+      manualEditModal.sectionId,
+      manualEditModal.originalTeacherCode,
+      manualEditModal.substituteTeacherCode.trim(),
+      manualEditModal.reason?.trim() || undefined,
+      manualEditModal.subject.trim() || undefined,
+    );
+    setManualEditModal(null);
+  };
+
+  const handleRevertManualEdit = () => {
+    if (!manualEditModal) return;
+    onRevertSubstitution(selectedDay, manualEditModal.periodIndex, manualEditModal.sectionId);
+    setManualEditModal(null);
+  };
 
 
   const filteredAbsentTeachers = React.useMemo(() => {
@@ -770,6 +924,52 @@ export function SubstitutionManager({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              <div className="flex items-center p-1 rounded-2xl bg-background-secondary border border-border">
+                <button
+                  type="button"
+                  onClick={() => setPrintViewMode("table")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                    printViewMode === "table"
+                      ? "bg-card text-primary shadow-xs border border-border/80"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <Table className="w-3.5 h-3.5" />
+                  <span>Duty Roster</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintViewMode("grid")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                    printViewMode === "grid"
+                      ? "bg-card text-primary shadow-xs border border-border/80"
+                      : "text-foreground-muted hover:text-foreground"
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Routine Grid</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenNewReplacementModal}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-card hover:bg-secondary border border-border text-foreground shadow-xs transition-colors cursor-pointer"
+                title="Manually add a replacement"
+              >
+                <UserPlus className="w-4 h-4 text-primary" />
+                <span>Add Replacement</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-xs transition-colors cursor-pointer"
+                title="Print official replacement routine on A4 (Ctrl+P)"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Replacements</span>
+              </button>
 
               {requirements.length > 0 && (
                 <button
@@ -1209,7 +1409,9 @@ export function SubstitutionManager({
                   fontWeight: 700,
                 }}
               >
-                DAILY TEACHER REPLACEMENT & SUBSTITUTION SCHEDULE — 2026
+                {printViewMode === "table"
+                  ? "DAILY TEACHER REPLACEMENT & SUBSTITUTION SCHEDULE — 2026"
+                  : "DAILY ROUTINE WITH TEACHER REPLACEMENTS — 2026"}
               </div>
 
               <div
@@ -1247,7 +1449,8 @@ export function SubstitutionManager({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
+              {printViewMode === "table" ? (
+                <div className="overflow-x-auto">
                 <table
                   className="w-full text-center border-collapse"
                   style={{
@@ -1333,11 +1536,18 @@ export function SubstitutionManager({
                         return (
                           <tr
                             key={`${sub.sectionId}_${sub.periodIndex}`}
-                            className="h-10"
+                            onClick={() =>
+                              handleOpenManualModal(
+                                sub.sectionId,
+                                sub.periodIndex,
+                              )
+                            }
+                            className="h-10 cursor-pointer hover:bg-purple-50/60 transition-colors"
                             style={{
                               backgroundColor:
                                 idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB",
                             }}
+                            title="Click to edit or remove replacement"
                           >
                             <td
                               className="p-1.5 text-center text-[12px] font-bold"
@@ -1425,24 +1635,303 @@ export function SubstitutionManager({
                   </tbody>
                 </table>
               </div>
-            </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table
+                  className="w-full text-center border-collapse"
+                  style={{
+                    border: "1.5px solid #000000",
+                    fontFamily: "'Times New Roman', Times, serif",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th
+                        className="p-1.5 text-center w-24 font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#FFFF00",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">Class &amp; Sec</div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">1st</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(1, "7.30-8.10")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">2nd</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(2, "8.10-8.45")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">3rd</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(3, "8.45-9.20")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">4th</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(4, "9.20-9.55")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center w-16 text-[12px] font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div>Break</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          ({getPeriodTime(0, "9.55-10.25")})
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">5th</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(5, "10.25-11.00")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">6th</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(6, "11.00-11.35")}
+                        </div>
+                      </th>
+                      <th
+                        className="p-1 text-center font-bold"
+                        style={{
+                          border: "1px solid #000000",
+                          backgroundColor: "#8DB3E2",
+                          color: "#000000",
+                        }}
+                      >
+                        <div className="text-[13px]">7th</div>
+                        <div className="text-[10px] font-normal leading-none mt-0.5">
+                          {getPeriodTime(7, "11.35-12.10")}
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentDayRoutine.sections.map((sec, rowIdx) => {
+                      const isClosed = !sec.isActive;
 
-            <div className="routine-signature-footer mt-auto pt-8 pb-2 print:pt-4 print:pb-1 flex items-center justify-between text-[11px] font-bold text-black px-4">
-              <div className="text-center">
-                <div className="w-36 border-b border-black mb-1 mx-auto" />
-                <div>Sign of OIC Routine Comm.</div>
+                      const renderGridCell = (pIdx: number) => {
+                        if (isClosed) {
+                          return (
+                            <td
+                              key={pIdx}
+                              className="p-1.5 text-center text-rose-700 bg-rose-50"
+                              style={{ border: "1px solid #000000" }}
+                            >
+                              <div className="text-[10px] font-bold uppercase tracking-wide">
+                                Closed
+                              </div>
+                              {sec.statusReason && (
+                                <div className="text-[9px] text-rose-600 font-medium truncate max-w-[85px] mx-auto">
+                                  {sec.statusReason}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        }
+
+                        const subData = substitutedMap.get(
+                          `${sec.sectionId}_${pIdx}`,
+                        );
+                        if (subData) {
+                          return (
+                            <td
+                              key={pIdx}
+                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                              className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-purple-400 hover:z-10 relative transition-all"
+                              style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#F3E8FF",
+                              }}
+                              title="Click to edit or remove replacement"
+                            >
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-[12px] text-black leading-tight">
+                                  {subData.subject}
+                                </div>
+                                {subData.originalSubject &&
+                                  subData.originalSubject !==
+                                    subData.subject && (
+                                    <div className="text-[8px] text-zinc-500 line-through">
+                                      was {subData.originalSubject}
+                                    </div>
+                                  )}
+                                <div className="flex items-center justify-center gap-1">
+                                  <span className="font-mono font-bold text-purple-700 text-[13px]">
+                                    {subData.substituteTeacherCode}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-600">
+                                    (for {subData.originalTeacherCode})
+                                  </span>
+                                </div>
+                                <span className="inline-block px-1 text-[8px] bg-purple-700 text-white font-bold rounded">
+                                  SUB
+                                </span>
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        const cell = sec.periods[pIdx];
+                        if (!cell) {
+                          return (
+                            <td
+                              key={pIdx}
+                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                              className="p-1.5 text-center text-zinc-300 text-[11px] cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
+                              style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#FAFAFA",
+                              }}
+                              title="Click to assign replacement"
+                            >
+                              -
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <td
+                            key={pIdx}
+                            onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
+                            className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FFFFFF",
+                            }}
+                            title="Click to assign or edit replacement"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-[12px] text-black leading-tight">
+                                {cell.subject}
+                              </div>
+                              <div className="font-mono font-bold text-[13px] text-zinc-800">
+                                {cell.teacherCode}
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      };
+
+                      return (
+                        <tr key={sec.sectionId} className="h-11">
+                          <td
+                            className="p-1 text-center font-bold text-[12px]"
+                            style={{
+                              border: "1px solid #000000",
+                              backgroundColor: "#FFFF00",
+                            }}
+                          >
+                            {sec.sectionId}
+                          </td>
+                          {renderGridCell(0)}
+                          {renderGridCell(1)}
+                          {renderGridCell(2)}
+                          {renderGridCell(3)}
+
+                          {rowIdx === 0 && (
+                            <td
+                              rowSpan={currentDayRoutine.sections.length}
+                              className="text-center font-bold text-[12px] tracking-wider align-middle"
+                              style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#FFFFCC",
+                                writingMode: "vertical-rl",
+                                transform: "rotate(180deg)",
+                              }}
+                            >
+                              BREAK / TIFFIN
+                            </td>
+                          )}
+
+                          {renderGridCell(4)}
+                          {renderGridCell(5)}
+                          {renderGridCell(6)}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className="text-center">
-                <div className="w-40 border-b border-black mb-1 mx-auto" />
-                <div>Sign of Chairman Routine Comm.</div>
-              </div>
-              <div className="text-center">
-                <div className="w-36 border-b border-black mb-1 mx-auto" />
-                <div>Sign of VP (EMMS)</div>
-              </div>
+            )}
+          </div>
+
+          <div className="routine-signature-footer mt-auto pt-8 pb-2 print:pt-4 print:pb-1 flex items-center justify-between text-[11px] font-bold text-black px-4">
+            <div className="text-center">
+              <div className="w-36 border-b border-black mb-1 mx-auto" />
+              <div>Sign of OIC Routine Comm.</div>
+            </div>
+            <div className="text-center">
+              <div className="w-40 border-b border-black mb-1 mx-auto" />
+              <div>Sign of Chairman Routine Comm.</div>
+            </div>
+            <div className="text-center">
+              <div className="w-36 border-b border-black mb-1 mx-auto" />
+              <div>Sign of VP (EMMS)</div>
             </div>
           </div>
+
+          <div className="text-center text-[10px] text-zinc-500 pt-2 border-t border-zinc-200 mt-2">
+            RAJUK UTTARA MODEL COLLEGE • ROUTINE AUTOMATION SYSTEM
+          </div>
         </div>
+      </div>
 
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-card border-2 border-border shadow-xs">
@@ -2037,20 +2526,35 @@ export function SubstitutionManager({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onRevertSubstitution(
-                        selectedDay,
-                        sub.periodIndex,
-                        sub.sectionId,
-                      )
-                    }
-                    className="p-1.5 rounded-xl text-foreground-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
-                    title="Revert this substitution"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenManualModal(
+                          sub.sectionId,
+                          sub.periodIndex,
+                        )
+                      }
+                      className="p-1.5 rounded-xl text-foreground-muted hover:text-primary hover:bg-secondary transition-colors cursor-pointer"
+                      title="Edit this substitution"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onRevertSubstitution(
+                          selectedDay,
+                          sub.periodIndex,
+                          sub.sectionId,
+                        )
+                      }
+                      className="p-1.5 rounded-xl text-foreground-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
+                      title="Revert this substitution"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2058,7 +2562,216 @@ export function SubstitutionManager({
         )}
       </div>
 
+      {manualEditModal && manualEditModal.isOpen && (
+        <div className="no-print fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-card border border-border p-4 sm:p-6 rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-foreground">
+                    {manualEditModal.isNew ? "Add Replacement" : "Edit Replacement"}
+                  </h3>
+                  <p className="text-xs text-foreground-muted">
+                    {selectedDay} • {manualEditModal.sectionId} • Period {manualEditModal.periodIndex + 1}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualEditModal(null)}
+                className="p-1.5 rounded-lg hover:bg-secondary text-foreground-muted cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            <form onSubmit={handleSaveManualEdit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Section
+                  </label>
+                  <select
+                    value={manualEditModal.sectionId}
+                    onChange={(e) =>
+                      handleModalSectionOrPeriodChange(
+                        e.target.value,
+                        manualEditModal.periodIndex,
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    {currentDayRoutine.sections.map((sec) => (
+                      <option key={sec.sectionId} value={sec.sectionId}>
+                        {sec.sectionId} ({sec.className})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Period
+                  </label>
+                  <select
+                    value={manualEditModal.periodIndex}
+                    onChange={(e) =>
+                      handleModalSectionOrPeriodChange(
+                        manualEditModal.sectionId,
+                        Number(e.target.value),
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6].map((pIdx) => (
+                      <option key={pIdx} value={pIdx}>
+                        Period {pIdx + 1} ({getPeriodTime(pIdx + 1, "")})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-background-secondary border border-border flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[11px] font-medium text-foreground-muted block">
+                    Regular Class
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {manualEditModal.originalSubject || "Free Period"}
+                  </span>
+                  {manualEditModal.originalTeacherCode && (
+                    <span className="text-foreground-muted ml-1.5 font-medium font-mono">
+                      ({manualEditModal.originalTeacherCode}
+                      {teacherDir[manualEditModal.originalTeacherCode]?.dept
+                        ? ` • ${teacherDir[manualEditModal.originalTeacherCode].dept}`
+                        : ""}
+                      )
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-foreground-muted block mb-0.5">
+                    Original Teacher
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.originalTeacherCode}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              originalTeacherCode: e.target.value.toUpperCase(),
+                            }
+                          : null,
+                      )
+                    }
+                    placeholder="e.g. NC"
+                    className="w-20 px-2 py-1 rounded-lg bg-card border border-border text-foreground font-mono uppercase font-bold text-xs outline-hidden focus:ring-1 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="font-semibold text-foreground block mb-1 flex items-center justify-between">
+                    <span>Substitute Teacher</span>
+                    <span className="text-[10px] font-normal text-foreground-muted">
+                      Free teachers listed first
+                    </span>
+                  </label>
+                  <select
+                    value={manualEditModal.substituteTeacherCode}
+                    onChange={(e) => handleModalSubstituteTeacherChange(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
+                  >
+                    <option value="" disabled>
+                      Select substitute teacher...
+                    </option>
+                    {candidateTeachersForModal.map(({ teacher, load, isOccupied }) => (
+                      <option key={teacher.code} value={teacher.code}>
+                        {teacher.code} - {teacher.subject || teacher.dept} (
+                        {isOccupied ? "Busy" : "Free"} • Load: {load})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Replacement Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.subject}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev ? { ...prev, subject: e.target.value } : null,
+                      )
+                    }
+                    placeholder="e.g. Physics, Higher Math, ICT"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-foreground block mb-1">
+                    Reason / Remarks (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEditModal.reason || ""}
+                    onChange={(e) =>
+                      setManualEditModal((prev) =>
+                        prev ? { ...prev, reason: e.target.value } : null,
+                      )
+                    }
+                    placeholder="e.g. Sick leave, Meeting, Exam duty, Exchange"
+                    className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                {!manualEditModal.isNew ? (
+                  <button
+                    type="button"
+                    onClick={handleRevertManualEdit}
+                    className="px-3 py-1.5 text-xs font-semibold text-danger hover:bg-danger-bg rounded-xl transition-colors cursor-pointer"
+                  >
+                    Remove Replacement
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setManualEditModal(null)}
+                    className="px-3.5 py-1.5 text-xs rounded-xl bg-secondary text-foreground hover:bg-muted cursor-pointer font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!manualEditModal.substituteTeacherCode.trim()}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 shadow-xs cursor-pointer"
+                  >
+                    {manualEditModal.isNew ? "Apply Replacement" : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {

@@ -116,6 +116,7 @@ export function calculateTeacherLoads(
           if (
             !teacherSubjects[code] &&
             cell.subject &&
+            !cell.isExam &&
             !isNonTeachingSubject(cell.subject, cell.isExam)
           ) {
             teacherSubjects[code] = cell.subject;
@@ -204,7 +205,7 @@ export function buildTeacherExperienceIndex(routineData: DayRoutine[]) {
     day.sections.forEach((sec) => {
       sec.periods.forEach((cell) => {
         if (!cell) return;
-        if (isNonTeachingSubject(cell.subject, cell.isExam)) return;
+        if (cell.isExam || isNonTeachingSubject(cell.subject, cell.isExam)) return;
 
         const codes = cell.teacherCode
           .split(/[/,]/)
@@ -242,6 +243,7 @@ export function getTeacherSubjectForSection(
           if (
             cell &&
             !cell.substituteTeacherCode &&
+            !cell.isExam &&
             !isNonTeachingSubject(
               cell.originalSubject || cell.subject,
               cell.isExam,
@@ -276,6 +278,7 @@ export function getTeacherSubjectForSection(
             if (
               cell &&
               !cell.substituteTeacherCode &&
+              !cell.isExam &&
               !isNonTeachingSubject(
                 cell.originalSubject || cell.subject,
                 cell.isExam,
@@ -309,6 +312,7 @@ export function getTeacherSubjectForSection(
         if (
           cell &&
           !cell.substituteTeacherCode &&
+          !cell.isExam &&
           !isNonTeachingSubject(
             cell.originalSubject || cell.subject,
             cell.isExam,

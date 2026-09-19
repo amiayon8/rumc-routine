@@ -6,3 +6,4 @@ Dont replace with prac class (substitution classes must never be practical/lab c
 Class 9 and 10 Business Studies sections cannot have Engineering Drawing (shown as Math), Biology, Chemistry, or Physics classes (shown as Science)
 Class 11 and 12 sections cannot have Engineering Drawing classes (shown as Math)
 Religion (Hindu) DRD cant be assigned as replacement
+AAB is a Religion (Islam) teacher; exam invigilations (such as Eng 1 Exam or Math Exam) must never count as a teacher's subject

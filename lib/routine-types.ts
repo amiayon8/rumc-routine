@@ -215,7 +215,7 @@ export const TEACHER_DIRECTORY: Record<string, TeacherInfo> = {
   AB: { code: "AB", dept: "Religion", subject: "Religion (Islam)" },
   MU: { code: "MU", dept: "BGS", subject: "BGS" },
   RMMH: { code: "RMMH", dept: "Religion", subject: "Religion (Islam)" },
-  AAB: { code: "AAB", dept: "English", subject: "English / Religion" },
+  AAB: { code: "AAB", dept: "Religion", subject: "Religion (Islam)" },
   SZK: { code: "SZK", dept: "Mathematics", subject: "Math" },
   MN: { code: "MN", dept: "Bangla", subject: "Bangla" },
   MRC: { code: "MRC", dept: "ICT", subject: "ICT" },

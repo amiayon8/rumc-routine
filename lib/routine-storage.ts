@@ -160,6 +160,17 @@ function getSnapshot(): DayRoutine[] {
               sanitizedTeachers[code] = rest as TeacherInfo;
             }
           }
+          if (
+            sanitizedTeachers["AAB"] &&
+            (sanitizedTeachers["AAB"].dept === "English" ||
+              sanitizedTeachers["AAB"].subject?.toLowerCase().includes("english"))
+          ) {
+            sanitizedTeachers["AAB"] = {
+              ...sanitizedTeachers["AAB"],
+              dept: "Religion",
+              subject: "Religion (Islam)",
+            };
+          }
           memoryTeachers = sanitizedTeachers;
         }
       }

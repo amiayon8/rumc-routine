@@ -79,7 +79,7 @@ export function IndividualRoutineView({
               .map((s) => s.trim())
               .filter(Boolean);
             parts.forEach((c) => {
-              const isReal = !isNonTeachingSubject(p.subject, p.isExam);
+              const isReal = !p.isExam && !isNonTeachingSubject(p.subject, p.isExam);
               if (!teacherMap[c]) {
                 teacherMap[c] = {
                   code: c,

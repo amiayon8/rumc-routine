@@ -74,7 +74,6 @@ export function ClassLoadView({
     });
   }, [loadList, statusFilter, searchTerm]);
 
-  // Overall Statistics
   const totalPeriodsWeek = loadList.reduce(
     (acc, curr) => acc + curr.totalWeekLoad,
     0,
@@ -214,7 +213,9 @@ export function ClassLoadView({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-background-secondary/80 border-b border-border text-foreground-muted font-bold">
-                <th className="py-3 px-4 sticky left-0 z-10 bg-background-secondary">Faculty Code</th>
+                <th className="py-3 px-4 sticky left-0 z-10 bg-background-secondary">
+                  Faculty Code
+                </th>
                 <th className="py-3 px-4">Department / Subject</th>
                 <th className="py-3 px-3 text-center">Sun</th>
                 <th className="py-3 px-3 text-center">Mon</th>
@@ -283,7 +284,6 @@ export function ClassLoadView({
         </div>
       </div>
 
-      {/* Teacher Free Periods Details Modal */}
       {selectedTeacher && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-card border border-border p-6 rounded-3xl shadow-2xl max-w-lg w-full space-y-4">
@@ -310,7 +310,6 @@ export function ClassLoadView({
               </button>
             </div>
 
-            {/* Daily Schedule breakdown */}
             <div className="space-y-3 text-xs">
               <h4 className="font-bold text-foreground flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-primary" />
@@ -374,7 +373,6 @@ export function ClassLoadView({
         </div>
       )}
 
-      {/* Teacher & Faculty Manager Modal */}
       {isTeacherModalOpen &&
         teachers &&
         onAddTeacher &&

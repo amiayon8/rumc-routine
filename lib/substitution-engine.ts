@@ -3,6 +3,8 @@ import {
   TEACHER_DIRECTORY,
   TeacherInfo,
   isNonTeachingSubject,
+  is11Or12BstdClass,
+  isPhysicsChemistryMathBiologyTeacher,
 } from "./routine-data";
 
 export interface SubstitutionCandidate {
@@ -53,7 +55,7 @@ export interface TeacherLoadSummary {
 
 export function calculateTeacherLoads(
   routineData: DayRoutine[],
-  customTeachers?: Record<string, TeacherInfo>
+  customTeachers?: Record<string, TeacherInfo>,
 ): Record<string, TeacherLoadSummary> {
   const directory = customTeachers || TEACHER_DIRECTORY;
   const result: Record<string, TeacherLoadSummary> = {};
@@ -61,7 +63,13 @@ export function calculateTeacherLoads(
   Object.values(directory).forEach((t) => {
     result[t.code] = {
       teacher: t,
-      dailyLoads: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
+      dailyLoads: {
+        Sunday: 0,
+        Monday: 0,
+        Tuesday: 0,
+        Wednesday: 0,
+        Thursday: 0,
+      },
       totalWeekLoad: 0,
       freeSlotsByDay: {
         Sunday: [0, 1, 2, 3, 4, 5, 6],
@@ -86,7 +94,10 @@ export function calculateTeacherLoads(
         if (!cell) return;
 
         const activeCode = cell.substituteTeacherCode || cell.teacherCode;
-        const codes = activeCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
+        const codes = activeCode
+          .split(/[/,]/)
+          .map((c) => c.trim())
+          .filter(Boolean);
 
         codes.forEach((code) => {
           if (!busyPeriodsByTeacher[code]) {
@@ -112,7 +123,13 @@ export function calculateTeacherLoads(
             dept: "General",
             subject: teacherSubjects[code] || "Subject",
           },
-          dailyLoads: { Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0 },
+          dailyLoads: {
+            Sunday: 0,
+            Monday: 0,
+            Tuesday: 0,
+            Wednesday: 0,
+            Thursday: 0,
+          },
           totalWeekLoad: 0,
           freeSlotsByDay: {
             Sunday: [0, 1, 2, 3, 4, 5, 6],
@@ -129,9 +146,9 @@ export function calculateTeacherLoads(
       result[code].dailyLoads[dayName] = periodsCount;
       result[code].totalWeekLoad += periodsCount;
 
-      result[code].freeSlotsByDay[dayName] = result[code].freeSlotsByDay[dayName].filter(
-        (idx) => !periodSet.has(idx)
-      );
+      result[code].freeSlotsByDay[dayName] = result[code].freeSlotsByDay[
+        dayName
+      ].filter((idx) => !periodSet.has(idx));
     });
   });
 
@@ -146,49 +163,44 @@ export function calculateTeacherLoads(
   return result;
 }
 
-/**
- * Finds which teachers are occupied in a specific day and period
- */
 export function getOccupiedTeachersInPeriod(
   dayRoutine: DayRoutine,
-  periodIndex: number
+  periodIndex: number,
 ): Set<string> {
   const occupied = new Set<string>();
 
   dayRoutine.sections.forEach((sec) => {
-    // If the class is closed, the teachers of this class are NOT occupied!
     if (!sec.isActive) return;
 
     const cell = sec.periods[periodIndex];
     if (!cell) return;
 
     const activeCode = cell.substituteTeacherCode || cell.teacherCode;
-    const codes = activeCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
+    const codes = activeCode
+      .split(/[/,]/)
+      .map((c) => c.trim())
+      .filter(Boolean);
     codes.forEach((c) => occupied.add(c));
   });
 
   return occupied;
 }
 
-/**
- * Builds an index of which teachers take which sections, classes, and subjects
- */
 export function buildTeacherExperienceIndex(routineData: DayRoutine[]) {
-  // teacherCode -> Set of sectionIds (e.g. "9A", "10B")
   const teacherSections: Record<string, Set<string>> = {};
-  // teacherCode -> Set of classNames (e.g. "Class 9", "Class 10")
   const teacherClasses: Record<string, Set<string>> = {};
-  // teacherCode -> Set of normalized subjects
   const teacherSubjects: Record<string, Set<string>> = {};
 
   routineData.forEach((day) => {
     day.sections.forEach((sec) => {
       sec.periods.forEach((cell) => {
         if (!cell) return;
-        // Non-teaching periods like exams or revision classes are NOT counted towards teachers' subjects or teaching experience
         if (isNonTeachingSubject(cell.subject, cell.isExam)) return;
 
-        const codes = cell.teacherCode.split(/[/,]/).map((c) => c.trim()).filter(Boolean);
+        const codes = cell.teacherCode
+          .split(/[/,]/)
+          .map((c) => c.trim())
+          .filter(Boolean);
         const subj = cell.subject.toLowerCase().trim();
 
         codes.forEach((code) => {
@@ -212,7 +224,7 @@ export function getTeacherSubjectForSection(
   teacherCode: string,
   sectionId: string,
   className?: string,
-  fallbackSubject?: string
+  fallbackSubject?: string,
 ): string {
   for (const day of routineData) {
     for (const sec of day.sections) {
@@ -221,7 +233,10 @@ export function getTeacherSubjectForSection(
           if (
             cell &&
             !cell.substituteTeacherCode &&
-            !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
+            !isNonTeachingSubject(
+              cell.originalSubject || cell.subject,
+              cell.isExam,
+            ) &&
             (cell.teacherCode === teacherCode ||
               cell.teacherCode
                 .split(/[/,]/)
@@ -243,7 +258,10 @@ export function getTeacherSubjectForSection(
             if (
               cell &&
               !cell.substituteTeacherCode &&
-              !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
+              !isNonTeachingSubject(
+                cell.originalSubject || cell.subject,
+                cell.isExam,
+              ) &&
               (cell.teacherCode === teacherCode ||
                 cell.teacherCode
                   .split(/[/,]/)
@@ -264,7 +282,10 @@ export function getTeacherSubjectForSection(
         if (
           cell &&
           !cell.substituteTeacherCode &&
-          !isNonTeachingSubject(cell.originalSubject || cell.subject, cell.isExam) &&
+          !isNonTeachingSubject(
+            cell.originalSubject || cell.subject,
+            cell.isExam,
+          ) &&
           (cell.teacherCode === teacherCode ||
             cell.teacherCode
               .split(/[/,]/)
@@ -326,12 +347,9 @@ export function getMultiTeacherSubstitutionPlan({
   ];
 
   const absentSet = new Set(absentTeacherCodes);
-
-  // Check if a teacher is absent during a specific period (0 to 6)
   const isTeacherAbsentInPeriod = (code: string, pIdx: number): boolean => {
     if (!absentSet.has(code)) return false;
     const specificPeriods = teacherAbsencePeriods?.[code];
-    // If empty array or undefined, teacher is absent for all periods (Full Day)
     if (!specificPeriods || specificPeriods.length === 0) return true;
     return specificPeriods.includes(pIdx);
   };
@@ -378,7 +396,9 @@ export function getMultiTeacherSubstitutionPlan({
         const singleCode = origCodes[0] || rawTeacherCode;
         const subCode = cell.substituteTeacherCode?.trim();
         const isOrigAbsent = isTeacherAbsentInPeriod(singleCode, pIdx);
-        const isSubAbsent = subCode ? isTeacherAbsentInPeriod(subCode, pIdx) : false;
+        const isSubAbsent = subCode
+          ? isTeacherAbsentInPeriod(subCode, pIdx)
+          : false;
 
         if (isOrigAbsent || isSubAbsent) {
           const origTeacher = teachersDirectory[singleCode] || {
@@ -420,12 +440,13 @@ export function getMultiTeacherSubstitutionPlan({
         }
         return;
       }
-
-      // Multi-teacher handling: determine current active codes per slot
       let currentCodes: string[] = [];
       if (cell.substituteTeacherCode) {
         if (cell.substituteTeacherCode.includes("/")) {
-          currentCodes = cell.substituteTeacherCode.split("/").map((c) => c.trim()).filter(Boolean);
+          currentCodes = cell.substituteTeacherCode
+            .split("/")
+            .map((c) => c.trim())
+            .filter(Boolean);
         } else {
           currentCodes = [cell.substituteTeacherCode.trim()];
         }
@@ -441,14 +462,16 @@ export function getMultiTeacherSubstitutionPlan({
         currentCodes[0] !== rawTeacherCode &&
         !origCodes.includes(currentCodes[0])
       ) {
-        // Previously replaced all teachers with a single substitute
         if (isTeacherAbsentInPeriod(currentCodes[0], pIdx)) {
           absentSlotIndices.push(0);
         }
       } else {
         origCodes.forEach((origCode, idx) => {
           const currCode = currentCodes[idx] || origCode;
-          if (isTeacherAbsentInPeriod(currCode, pIdx) || isTeacherAbsentInPeriod(origCode, pIdx)) {
+          if (
+            isTeacherAbsentInPeriod(currCode, pIdx) ||
+            isTeacherAbsentInPeriod(origCode, pIdx)
+          ) {
             absentSlotIndices.push(idx);
           } else {
             presentSlotIndices.push(idx);
@@ -464,14 +487,14 @@ export function getMultiTeacherSubstitutionPlan({
         (currentCodes.length === 1 && absentSlotIndices.length === 1);
 
       if (isAllAbsent) {
-        // Case A: ALL teachers need change -> Replace with 1 teacher with any subject, subject will change
         const origTeacher: TeacherInfo = {
           code: rawTeacherCode,
           dept: "Multiple",
           subject: originalSubject,
         };
         const activeSubTeacher =
-          cell.substituteTeacherCode && !cell.substituteTeacherCode.includes("/")
+          cell.substituteTeacherCode &&
+          !cell.substituteTeacherCode.includes("/")
             ? teachersDirectory[cell.substituteTeacherCode] || {
                 code: cell.substituteTeacherCode,
                 dept: "General",
@@ -491,15 +514,18 @@ export function getMultiTeacherSubstitutionPlan({
           originalSubject,
           originalTeacher: origTeacher,
           activeSubstituteTeacher: activeSubTeacher,
-          isAlreadySubstituted: !!cell.substituteTeacherCode && !cell.substituteTeacherCode.includes("/"),
+          isAlreadySubstituted:
+            !!cell.substituteTeacherCode &&
+            !cell.substituteTeacherCode.includes("/"),
           isMultiTeacher: true,
           isAllAbsent: true,
           coTeachersPresent: [],
           allOriginalTeacherCodes: origCodes,
         });
       } else {
-        // Case B: One or some (not all) teachers need change -> Replace for the required teacher without changing subject
-        const coTeachersPresent = presentSlotIndices.map((i) => currentCodes[i] || origCodes[i]);
+        const coTeachersPresent = presentSlotIndices.map(
+          (i) => currentCodes[i] || origCodes[i],
+        );
 
         absentSlotIndices.forEach((slotIdx) => {
           const absentCode = origCodes[slotIdx];
@@ -541,14 +567,10 @@ export function getMultiTeacherSubstitutionPlan({
       }
     });
   });
-
-  // Track dynamic workloads and period bookings during assignment
   const simulatedLoads: Record<string, number> = {};
   Object.keys(teacherLoads).forEach((code) => {
     simulatedLoads[code] = teacherLoads[code]?.dailyLoads[dayName] || 0;
   });
-
-  // periodIndex -> Set of teacher codes assigned as substitutes in that period
   const periodBookings: Record<number, Set<string>> = {
     0: new Set(),
     1: new Set(),
@@ -558,36 +580,28 @@ export function getMultiTeacherSubstitutionPlan({
     5: new Set(),
     6: new Set(),
   };
-
-  // Helper to score a candidate for a specific requirement
   const evaluateCandidate = (
     cand: TeacherInfo,
-    req: (typeof rawRequirements)[0]
+    req: (typeof rawRequirements)[0],
   ): SubstitutionCandidate | null => {
-    // Cannot assign if candidate is absent in this specific period
     if (isTeacherAbsentInPeriod(cand.code, req.periodIndex)) return null;
-
-    // Cannot assign if candidate is the original teacher being substituted
     if (cand.code === req.originalTeacher.code) return null;
-
-    // In multi-teacher all-absent, candidate cannot be any of the original absent co-teachers
-    if (req.isAllAbsent && req.allOriginalTeacherCodes?.includes(cand.code)) return null;
-
-    // In multi-teacher partial replacement, candidate cannot be one of the present co-teachers in this class
+    if (req.isAllAbsent && req.allOriginalTeacherCodes?.includes(cand.code))
+      return null;
     if (req.coTeachersPresent?.includes(cand.code)) return null;
+    if (
+      is11Or12BstdClass(req.sectionId, req.className, req.sectionName) &&
+      isPhysicsChemistryMathBiologyTeacher(cand)
+    ) {
+      return null;
+    }
 
-    // Cannot assign if not in allowed pool
     if (allowedSet && !allowedSet.has(cand.code)) return null;
-
-    // Is candidate currently the active substitute in this cell?
     const isCurrentSub = req.activeSubstituteTeacher?.code === cand.code;
-
-    // Check if occupied in this period in regular schedule (unless already assigned as current sub in this cell)
     const occupied = getOccupiedTeachersInPeriod(dayRoutine, req.periodIndex);
     if (occupied.has(cand.code) && !isCurrentSub) return null;
-
-    // Check if already booked as substitute in this same period in this engine run (unless it's for this requirement)
-    if (periodBookings[req.periodIndex]?.has(cand.code) && !isCurrentSub) return null;
+    if (periodBookings[req.periodIndex]?.has(cand.code) && !isCurrentSub)
+      return null;
 
     const candSubjects = teacherSubjects[cand.code] || new Set();
     const candClasses = teacherClasses[cand.code] || new Set();
@@ -595,9 +609,8 @@ export function getMultiTeacherSubstitutionPlan({
 
     const subjNorm = req.subject.toLowerCase().trim();
     const isSameDept =
-      cand.dept.toLowerCase().trim() === req.originalTeacher.dept.toLowerCase().trim();
-
-    // Support subject name variations across classes (e.g. Math, H.Math, G.Math, B.Math)
+      cand.dept.toLowerCase().trim() ===
+      req.originalTeacher.dept.toLowerCase().trim();
     const candSubjectTokens = (cand.subject || "")
       .toLowerCase()
       .split(/[,/|;]/)
@@ -610,13 +623,13 @@ export function getMultiTeacherSubstitutionPlan({
         (token) =>
           token === subjNorm ||
           subjNorm.includes(token) ||
-          token.includes(subjNorm)
+          token.includes(subjNorm),
       ) ||
       Array.from(candSubjects).some(
         (expSubj) =>
           expSubj === subjNorm ||
           subjNorm.includes(expSubj) ||
-          expSubj.includes(subjNorm)
+          expSubj.includes(subjNorm),
       );
 
     const takesExactSection = candSections.has(req.sectionId);
@@ -628,24 +641,22 @@ export function getMultiTeacherSubstitutionPlan({
 
     const matchReasons: string[] = [];
     let score = 0;
-
-    // If already the assigned substitute, grant priority continuity score
     if (isCurrentSub) {
       score += 300;
       matchReasons.push("Currently Active Substitute");
     }
-
-    // Determine suggestedSubject and scoring based on multi-teacher rules
     let suggestedSubject: string;
 
     if (req.isMultiTeacher && !req.isAllAbsent) {
-      // Rule: "If one teacher needs replacement, then replace with any teacher for the required teacher without changing subject."
       suggestedSubject = req.originalSubject || req.subject;
 
       score += 150;
       matchReasons.push(`Co-Teaching Support (${req.subject} maintained)`);
 
-      if (cand.dept.toLowerCase().trim() === req.originalTeacher.dept.toLowerCase().trim()) {
+      if (
+        cand.dept.toLowerCase().trim() ===
+        req.originalTeacher.dept.toLowerCase().trim()
+      ) {
         score += 40;
         matchReasons.push(`Same Department (${cand.dept})`);
       }
@@ -654,13 +665,12 @@ export function getMultiTeacherSubstitutionPlan({
         matchReasons.push(`Familiar with ${req.className}`);
       }
     } else if (req.isMultiTeacher && req.isAllAbsent) {
-      // Rule: "If all teachers of such classes needs change, then replace with a teacher with any subject and subject will be changed too."
       suggestedSubject = getTeacherSubjectForSection(
         routineData,
         cand.code,
         req.sectionId,
         req.className,
-        cand.subject || cand.dept || req.subject
+        cand.subject || cand.dept || req.subject,
       );
 
       score += 130;
@@ -675,13 +685,12 @@ export function getMultiTeacherSubstitutionPlan({
         matchReasons.push(`Same Department (${cand.dept})`);
       }
     } else {
-      // Standard single teacher evaluation
       suggestedSubject = getTeacherSubjectForSection(
         routineData,
         cand.code,
         req.sectionId,
         req.className,
-        cand.subject || cand.dept || req.subject
+        cand.subject || cand.dept || req.subject,
       );
 
       if (takesExactSection && takesThisSubject) {
@@ -701,21 +710,25 @@ export function getMultiTeacherSubstitutionPlan({
         matchReasons.push("General Substitution");
       }
 
-      if (takesExactSection && !matchReasons.some((r) => r.includes("Takes " + req.sectionId))) {
+      if (
+        takesExactSection &&
+        !matchReasons.some((r) => r.includes("Takes " + req.sectionId))
+      ) {
         score += 60;
         matchReasons.push(`Takes other subjects in ${req.sectionId}`);
-      } else if (takesThisGradeLevel && !matchReasons.some((r) => r.includes(req.className))) {
+      } else if (
+        takesThisGradeLevel &&
+        !matchReasons.some((r) => r.includes(req.className))
+      ) {
         score += 30;
         matchReasons.push(`Familiar with ${req.className}`);
       }
     }
 
-    // Workload balancing
     if (isOverloaded) {
-      score -= 500; // Strong penalty to avoid overload
+      score -= 500;
       matchReasons.push(`Overload Warning (${currentLoad} classes)`);
     } else {
-      // Reward lower workload to balance teaching duties evenly
       score += Math.max(0, (maxDailyLoad - currentLoad) * 25);
       matchReasons.push(`Current load: ${currentLoad} classes`);
     }
@@ -756,7 +769,10 @@ export function getMultiTeacherSubstitutionPlan({
       candidateList.find((c) => !c.isOverloaded) || candidateList[0] || null;
 
     if (bestCandidate) {
-      if (!req.isAlreadySubstituted || req.activeSubstituteTeacher?.code !== bestCandidate.teacher.code) {
+      if (
+        !req.isAlreadySubstituted ||
+        req.activeSubstituteTeacher?.code !== bestCandidate.teacher.code
+      ) {
         simulatedLoads[bestCandidate.teacher.code] =
           (simulatedLoads[bestCandidate.teacher.code] || 0) + 1;
       }
@@ -764,7 +780,9 @@ export function getMultiTeacherSubstitutionPlan({
     }
 
     const currentSubCandidate = req.activeSubstituteTeacher
-      ? candidateList.find((c) => c.teacher.code === req.activeSubstituteTeacher?.code)
+      ? candidateList.find(
+          (c) => c.teacher.code === req.activeSubstituteTeacher?.code,
+        )
       : null;
 
     const assignedCandidate = currentSubCandidate || bestCandidate;
@@ -799,7 +817,7 @@ export function getMultiTeacherSubstitutionPlan({
 export function getSubstitutionRequirements(
   dayName: string,
   absentTeacherCode: string,
-  routineData: DayRoutine[]
+  routineData: DayRoutine[],
 ): SubstitutionRequirement[] {
   return getMultiTeacherSubstitutionPlan({
     dayName,

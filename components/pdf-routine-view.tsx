@@ -10,6 +10,8 @@ import {
   sortDaysCanonical,
   TeacherInfo,
   TEACHER_DIRECTORY,
+  is11Or12BstdClass,
+  isPhysicsChemistryMathBiologyTeacher,
 } from "../lib/routine-data";
 import { getTeacherSubjectForSection } from "../lib/substitution-engine";
 import { TimingEditorModal } from "./timing-editor-modal";
@@ -306,10 +308,11 @@ export function PdfRoutineView({
                   setPrintAllDays(false);
                   onSelectDay(day);
                 }}
-                className={`px-4 py-2 text-sm sm:text-base font-bold rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${isSelected
-                  ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30"
-                  : "bg-background-secondary text-foreground-muted hover:text-foreground hover:bg-secondary border border-border"
-                  }`}
+                className={`px-4 py-2 text-sm sm:text-base font-bold rounded-2xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30"
+                    : "bg-background-secondary text-foreground-muted hover:text-foreground hover:bg-secondary border border-border"
+                }`}
               >
                 {day}
               </button>
@@ -364,17 +367,19 @@ export function PdfRoutineView({
             <button
               type="button"
               onClick={() => setIsToolsOpen((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors shadow-xs cursor-pointer shrink-0 ${isToolsOpen
-                ? "bg-secondary text-foreground border-primary/40 ring-2 ring-primary/10"
-                : "bg-card hover:bg-secondary border-border text-foreground"
-                }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors shadow-xs cursor-pointer shrink-0 ${
+                isToolsOpen
+                  ? "bg-secondary text-foreground border-primary/40 ring-2 ring-primary/10"
+                  : "bg-card hover:bg-secondary border-border text-foreground"
+              }`}
               title="Routine Management and Settings"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-foreground-muted" />
               <span>Tools</span>
               <ChevronDown
-                className={`w-3 h-3 text-foreground-subtle transition-transform ${isToolsOpen ? "rotate-180" : ""
-                  }`}
+                className={`w-3 h-3 text-foreground-subtle transition-transform ${
+                  isToolsOpen ? "rotate-180" : ""
+                }`}
               />
             </button>
 
@@ -484,7 +489,6 @@ export function PdfRoutineView({
         </div>
       </div>
 
-      {/* Routine Grid Display (Authentic PDF replica format) - Dedicated Print Area */}
       <div className="routine-print-area space-y-10 font-serif">
         {displayedDays.map((dayRoutine) => (
           <div
@@ -581,7 +585,9 @@ export function PdfRoutineView({
                       }}
                     >
                       <th
-                        onClick={() => onAddSection && setIsClassModalOpen(true)}
+                        onClick={() =>
+                          onAddSection && setIsClassModalOpen(true)
+                        }
                         className="py-0.5 px-1 text-center w-12 whitespace-nowrap text-[13.5px] font-bold cursor-pointer hover:bg-[#7aa4da] transition-colors sticky left-0 z-20"
                         title="Click to add, edit, or remove classes and sections"
                         style={{
@@ -1006,17 +1012,26 @@ export function PdfRoutineView({
                   form.elements.namedItem("teacherCode") as HTMLInputElement
                 )?.value.trim();
                 const subTeacherCode = (
-                  form.elements.namedItem("substituteTeacherCode") as HTMLInputElement
+                  form.elements.namedItem(
+                    "substituteTeacherCode",
+                  ) as HTMLInputElement
                 )?.value.trim();
                 const subSubject = (
-                  form.elements.namedItem("substituteSubject") as HTMLInputElement
+                  form.elements.namedItem(
+                    "substituteSubject",
+                  ) as HTMLInputElement
                 )?.value.trim();
                 const subReason = (
-                  form.elements.namedItem("substituteReason") as HTMLInputElement
+                  form.elements.namedItem(
+                    "substituteReason",
+                  ) as HTMLInputElement
                 )?.value.trim();
 
                 if (!subject || !teacherCode) {
-                  if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                  if (
+                    editingCell.cell?.substituteTeacherCode &&
+                    onRevertSubstitution
+                  ) {
                     onRevertSubstitution(
                       editingCell.day,
                       editingCell.periodIndex,
@@ -1030,6 +1045,21 @@ export function PdfRoutineView({
                     null,
                   );
                 } else if (subTeacherCode) {
+                  if (
+                    is11Or12BstdClass(editingCell.sectionId) &&
+                    isPhysicsChemistryMathBiologyTeacher(
+                      TEACHER_DIRECTORY[subTeacherCode] || {
+                        code: subTeacherCode,
+                        dept: "",
+                        subject: "",
+                      },
+                    )
+                  ) {
+                    alert(
+                      "Physics, Chemistry, Math, and Biology teachers cannot take Class 11/12 Business Studies classes.",
+                    );
+                    return;
+                  }
                   if (onApplySubstitution) {
                     onApplySubstitution(
                       editingCell.day,
@@ -1047,7 +1077,8 @@ export function PdfRoutineView({
                       editingCell.periodIndex,
                       {
                         subject: subSubject || subject,
-                        originalSubject: editingCell.cell?.originalSubject || subject,
+                        originalSubject:
+                          editingCell.cell?.originalSubject || subject,
                         teacherCode,
                         room: editingCell.cell?.room,
                         substituteTeacherCode: subTeacherCode,
@@ -1057,7 +1088,10 @@ export function PdfRoutineView({
                     );
                   }
                 } else {
-                  if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                  if (
+                    editingCell.cell?.substituteTeacherCode &&
+                    onRevertSubstitution
+                  ) {
                     onRevertSubstitution(
                       editingCell.day,
                       editingCell.periodIndex,
@@ -1089,7 +1123,11 @@ export function PdfRoutineView({
                 </label>
                 <input
                   name="subject"
-                  defaultValue={editingCell.cell?.originalSubject || editingCell.cell?.subject || ""}
+                  defaultValue={
+                    editingCell.cell?.originalSubject ||
+                    editingCell.cell?.subject ||
+                    ""
+                  }
                   placeholder="e.g. Physics, Higher Math, ICT"
                   className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20"
                 />
@@ -1117,7 +1155,10 @@ export function PdfRoutineView({
                       type="button"
                       onClick={() => {
                         setIsAssigningSub(false);
-                        if (editingCell.cell?.substituteTeacherCode && onRevertSubstitution) {
+                        if (
+                          editingCell.cell?.substituteTeacherCode &&
+                          onRevertSubstitution
+                        ) {
                           onRevertSubstitution(
                             editingCell.day,
                             editingCell.periodIndex,
@@ -1134,7 +1175,9 @@ export function PdfRoutineView({
                               substituteTeacherCode: undefined,
                               substituteReason: undefined,
                               substituteSubject: undefined,
-                              subject: editingCell.cell.originalSubject || editingCell.cell.subject,
+                              subject:
+                                editingCell.cell.originalSubject ||
+                                editingCell.cell.subject,
                               originalSubject: undefined,
                             },
                           );
@@ -1152,7 +1195,9 @@ export function PdfRoutineView({
                       </label>
                       <input
                         name="substituteTeacherCode"
-                        defaultValue={editingCell.cell?.substituteTeacherCode || ""}
+                        defaultValue={
+                          editingCell.cell?.substituteTeacherCode || ""
+                        }
                         placeholder="e.g. RH"
                         className="w-full px-2.5 py-1.5 rounded-lg bg-card border border-purple-300 dark:border-purple-700 text-foreground font-mono uppercase font-bold text-xs outline-hidden focus:ring-1 focus:ring-purple-400"
                       />
@@ -1234,18 +1279,16 @@ export function PdfRoutineView({
         </div>
       )}
 
-      {/* Timing Editor Modal */}
       {onUpdateTimings && (
         <TimingEditorModal
           isOpen={isTimingModalOpen}
           onClose={() => setIsTimingModalOpen(false)}
           timings={timings}
           onSaveTimings={onUpdateTimings}
-          onResetTimings={onResetTimings || (() => { })}
+          onResetTimings={onResetTimings || (() => {})}
         />
       )}
 
-      {/* Class & Section Manager Modal */}
       {isClassModalOpen && onAddSection && onRemoveSection && onEditSection && (
         <ClassManagerModal
           isOpen={isClassModalOpen}
@@ -1261,7 +1304,6 @@ export function PdfRoutineView({
         />
       )}
 
-      {/* Teacher & Faculty Manager Modal */}
       {isTeacherModalOpen &&
         teachers &&
         onAddTeacher &&
@@ -1278,7 +1320,6 @@ export function PdfRoutineView({
           />
         )}
 
-      {/* Strict Print CSS: Ensures each day routine fits precisely on 1 single page without any overflow */}
       <style jsx global>{`
         @media print {
           @page {
@@ -1432,7 +1473,7 @@ export function PdfRoutineView({
           }
 
           table.routine-table tbody tr {
-            height: 8.0mm !important;
+            height: 8mm !important;
             max-height: 8.4mm !important;
           }
 

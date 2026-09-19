@@ -2,16 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import { DayRoutine, sortDaysCanonical } from "./routine-data";
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://abvzruratksjqzwhhekb.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://abvzruratksjqzwhhekb.supabase.co";
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFidnpydXJhdGtzanF6d2hoZWtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNzkwOTgsImV4cCI6MjEwNDg1NTA5OH0.5q-omO6DToETqli9m8aO4zvu_ed8TGOBF13J6ZR1a74";
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-/**
- * Fetch all days routine from Supabase
- */
 export async function fetchRoutineFromSupabase(): Promise<DayRoutine[] | null> {
   try {
     const { data, error } = await supabase
@@ -24,7 +22,13 @@ export async function fetchRoutineFromSupabase(): Promise<DayRoutine[] | null> {
       return null;
     }
 
-    const validDays = new Set(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"]);
+    const validDays = new Set([
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+    ]);
     const mapped = data
       .filter((row) => validDays.has(row.day))
       .map((row) => ({
@@ -39,10 +43,9 @@ export async function fetchRoutineFromSupabase(): Promise<DayRoutine[] | null> {
   }
 }
 
-/**
- * Save / Upsert full routine or specific day to Supabase
- */
-export async function saveRoutineToSupabase(days: DayRoutine[]): Promise<boolean> {
+export async function saveRoutineToSupabase(
+  days: DayRoutine[],
+): Promise<boolean> {
   try {
     const rows = days.map((d) => ({
       id: d.day.toLowerCase(),
@@ -64,9 +67,6 @@ export async function saveRoutineToSupabase(days: DayRoutine[]): Promise<boolean
   }
 }
 
-/**
- * Log a substitution to Supabase
- */
 export async function logSubstitutionToSupabase(params: {
   day: string;
   sectionId: string;
@@ -92,10 +92,9 @@ export async function logSubstitutionToSupabase(params: {
   }
 }
 
-/**
- * Fetch period timings from Supabase
- */
-export async function fetchTimingsFromSupabase(): Promise<import("./routine-types").PeriodTiming[] | null> {
+export async function fetchTimingsFromSupabase(): Promise<
+  import("./routine-types").PeriodTiming[] | null
+> {
   try {
     const { data, error } = await supabase
       .from("routine_store")
@@ -110,11 +109,8 @@ export async function fetchTimingsFromSupabase(): Promise<import("./routine-type
   }
 }
 
-/**
- * Save period timings to Supabase
- */
 export async function saveTimingsToSupabase(
-  timings: import("./routine-types").PeriodTiming[]
+  timings: import("./routine-types").PeriodTiming[],
 ): Promise<boolean> {
   try {
     const { error } = await supabase.from("routine_store").upsert([

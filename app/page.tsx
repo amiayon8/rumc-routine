@@ -125,7 +125,6 @@ export default function Home() {
           />
         )}
 
-        {/* View 2: Individual Teacher & Class / Section Routines */}
         {activeTab === "individual-routine" && (
           <IndividualRoutineView
             routineData={routineData}
@@ -136,7 +135,6 @@ export default function Home() {
           />
         )}
 
-        {/* View 3: Teacher Auto-Replacements */}
         {activeTab === "substitution" && (
           <SubstitutionManager
             routineData={routineData}
@@ -148,7 +146,6 @@ export default function Home() {
           />
         )}
 
-        {/* View 3: Faculty Load Matrix */}
         {activeTab === "class-load" && (
           <ClassLoadView
             routineData={routineData}
@@ -160,7 +157,6 @@ export default function Home() {
           />
         )}
 
-        {/* View 4: Classes Active & Closed Manager */}
         {activeTab === "class-status" && (
           <ClassStatusManager
             routineData={routineData}
@@ -177,7 +173,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Clean Minimalist Footer (Hidden during PDF print) */}
       <footer className="no-print w-full border-t border-border/80 bg-card/40 py-4 text-xs text-foreground-muted">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2">

@@ -56,15 +56,11 @@ export function IndividualRoutineView({
     cell: RoutineCell | null;
   } | null>(null);
 
-  // Period timing lookup helper
   const getPeriodTime = (index: number, fallback: string) => {
     const found = timings.find((t) => t.index === index);
     return found ? found.time : fallback;
   };
 
-  // ==========================================
-  // 1. EXTRACT ALL TEACHERS & COMPUTE LOADS
-  // ==========================================
   const allTeachers = React.useMemo(() => {
     const teacherMap: Record<string, TeacherInfo> = {
       ...(teachers || TEACHER_DIRECTORY),
@@ -175,7 +171,6 @@ export function IndividualRoutineView({
     return schedules;
   }, [allTeachers, routineData]);
 
-  // Teacher load counts
   const teacherTotalLoads = React.useMemo(() => {
     const loads: Record<
       string,
@@ -203,10 +198,8 @@ export function IndividualRoutineView({
     return loads;
   }, [allTeachers, teacherSchedules]);
 
-  // Teacher selection state
   const sortedTeacherCodes = React.useMemo(() => {
     return Object.keys(allTeachers).sort((a, b) => {
-      // Sort by active weekly load descending, then by code
       const loadA = teacherTotalLoads[a]?.total || 0;
       const loadB = teacherTotalLoads[b]?.total || 0;
       if (loadB !== loadA) return loadB - loadA;
@@ -218,9 +211,6 @@ export function IndividualRoutineView({
     sortedTeacherCodes[0] || "SM",
   );
 
-  // ==========================================
-  // 2. EXTRACT ALL SECTIONS
-  // ==========================================
   const allSections = React.useMemo(() => {
     const firstDay = routineData[0];
     if (!firstDay) return [];
@@ -246,7 +236,6 @@ export function IndividualRoutineView({
     return Array.from(new Set(allSections.map((s) => s.className)));
   }, [allSections]);
 
-  // Handle Print Routine
   const handlePrint = () => {
     window.print();
   };
@@ -321,7 +310,6 @@ export function IndividualRoutineView({
           </div>
         </div>
 
-        {/* Dynamic Selector based on selected mode */}
         {mode === "teacher" ? (
           <div className="pt-2 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div className="sm:col-span-2">
@@ -350,7 +338,6 @@ export function IndividualRoutineView({
               </div>
             </div>
 
-            {/* Quick stats badge */}
             <div className="p-2.5 rounded-xl bg-background-secondary border border-border flex items-center justify-between text-xs">
               <span className="text-foreground-muted">Weekly Load:</span>
               <span className="font-bold text-primary">
@@ -360,7 +347,6 @@ export function IndividualRoutineView({
           </div>
         ) : (
           <div className="pt-2 border-t border-border space-y-3">
-            {/* Class filter chips */}
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="font-semibold text-foreground mr-1">
                 Class Filter:
@@ -392,7 +378,6 @@ export function IndividualRoutineView({
               ))}
             </div>
 
-            {/* Section pills */}
             <div className="flex flex-wrap gap-1.5">
               {filteredSections.map((sec) => (
                 <button
@@ -413,12 +398,8 @@ export function IndividualRoutineView({
         )}
       </div>
 
-      {/* 2. AUTHENTIC OFFICIAL ROUTINE SHEET (Targeted by .routine-print-area) */}
       <div className="routine-print-area">
         {mode === "teacher" ? (
-          /* =========================================================================
-             OFFICIAL INDIVIDUAL TEACHER ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
-             ========================================================================= */
           <div
             className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
             style={{
@@ -427,7 +408,6 @@ export function IndividualRoutineView({
               backgroundColor: "#ffffff",
             }}
           >
-            {/* Header: WEF Date in RED & Shift Name */}
             <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
               <span style={{ color: "#FF0000" }}>
                 WEF: {getTodaysFullDate()}
@@ -437,7 +417,6 @@ export function IndividualRoutineView({
               </span>
             </div>
 
-            {/* College Name & Subtitle */}
             <div className="text-center py-2 space-y-0.5">
               <h1
                 className="text-xl sm:text-2xl font-bold tracking-wide uppercase text-black"
@@ -453,7 +432,6 @@ export function IndividualRoutineView({
               </div>
             </div>
 
-            {/* Yellow Banner: Teacher's Individual Routine */}
             <div
               className="py-1 px-3 text-center font-bold text-[13px] tracking-wide my-2 uppercase"
               style={{
@@ -466,7 +444,6 @@ export function IndividualRoutineView({
               TEACHER&apos;S INDIVIDUAL CLASS ROUTINE — 2026
             </div>
 
-            {/* Teacher Meta Info Box */}
             <div
               className="p-2.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[12px] border"
               style={{
@@ -496,7 +473,6 @@ export function IndividualRoutineView({
               </div>
             </div>
 
-            {/* 5-Day Weekly Routine Grid */}
             <div className="overflow-x-auto">
               <table
                 className="w-full text-center border-collapse"
@@ -569,7 +545,6 @@ export function IndividualRoutineView({
                         {getPeriodTime(4, "9.20-9.55")}
                       </div>
                     </th>
-                    {/* Official Break Column */}
                     <th
                       className="p-1 text-center w-16 text-[12px] font-bold"
                       style={{
@@ -715,7 +690,6 @@ export function IndividualRoutineView({
 
                     return (
                       <tr key={dayName} className="h-14">
-                        {/* Day Name */}
                         <td
                           className="p-2 text-center font-bold text-[12px]"
                           style={{
@@ -726,13 +700,11 @@ export function IndividualRoutineView({
                           {dayName}
                         </td>
 
-                        {/* Periods 1 to 4 */}
                         {renderCell(0)}
                         {renderCell(1)}
                         {renderCell(2)}
                         {renderCell(3)}
 
-                        {/* Break Column */}
                         {rowIdx === 0 && (
                           <td
                             rowSpan={DAYS_OF_WEEK.length}
@@ -748,12 +720,10 @@ export function IndividualRoutineView({
                           </td>
                         )}
 
-                        {/* Periods 5 to 7 */}
                         {renderCell(4)}
                         {renderCell(5)}
                         {renderCell(6)}
 
-                        {/* Daily Load */}
                         <td
                           className="p-2 text-center font-bold text-[12px]"
                           style={{
@@ -770,7 +740,6 @@ export function IndividualRoutineView({
               </table>
             </div>
 
-            {/* Official Signatures Block (Replica of RUMC PDF Format) */}
             <div className="mt-auto pt-8 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>
@@ -791,9 +760,6 @@ export function IndividualRoutineView({
             </div>
           </div>
         ) : (
-          /* =========================================================================
-             OFFICIAL CLASS & SECTION ROUTINE SHEET (EXACT RUMC STYLING & COLORS)
-             ========================================================================= */
           <div
             className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
             style={{
@@ -802,7 +768,6 @@ export function IndividualRoutineView({
               backgroundColor: "#ffffff",
             }}
           >
-            {/* Header: WEF Date in RED & Shift Name */}
             <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
               <span style={{ color: "#FF0000" }}>
                 WEF: {getTodaysFullDate()}
@@ -812,7 +777,6 @@ export function IndividualRoutineView({
               </span>
             </div>
 
-            {/* College Name & Subtitle */}
             <div className="text-center py-2 space-y-0.5">
               <h1
                 className="text-xl sm:text-2xl font-bold tracking-wide uppercase text-black"
@@ -828,7 +792,6 @@ export function IndividualRoutineView({
               </div>
             </div>
 
-            {/* Yellow Banner: Class Routine */}
             <div
               className="py-1 px-3 text-center font-bold text-[13px] tracking-wide my-2 uppercase"
               style={{
@@ -841,7 +804,6 @@ export function IndividualRoutineView({
               CLASS &amp; SECTION ROUTINE — 2026
             </div>
 
-            {/* Class & Section Meta Info Box */}
             <div
               className="p-2.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[12px] border"
               style={{
@@ -873,7 +835,6 @@ export function IndividualRoutineView({
               </div>
             </div>
 
-            {/* 5-Day Weekly Routine Grid for this Section */}
             <div className="overflow-x-auto">
               <table
                 className="w-full text-center border-collapse"
@@ -946,7 +907,6 @@ export function IndividualRoutineView({
                         {getPeriodTime(4, "9.20-9.55")}
                       </div>
                     </th>
-                    {/* Official Break Column */}
                     <th
                       className="p-1 text-center w-16 text-[12px] font-bold"
                       style={{
@@ -1142,7 +1102,6 @@ export function IndividualRoutineView({
 
                     return (
                       <tr key={dayName} className="h-14">
-                        {/* Day Name */}
                         <td
                           className="p-2 text-center font-bold text-[12px]"
                           style={{
@@ -1153,13 +1112,11 @@ export function IndividualRoutineView({
                           {dayName}
                         </td>
 
-                        {/* Periods 1 to 4 */}
                         {renderCell(0)}
                         {renderCell(1)}
                         {renderCell(2)}
                         {renderCell(3)}
 
-                        {/* Break Column */}
                         {rowIdx === 0 && (
                           <td
                             rowSpan={DAYS_OF_WEEK.length}
@@ -1175,7 +1132,6 @@ export function IndividualRoutineView({
                           </td>
                         )}
 
-                        {/* Periods 5 to 7 */}
                         {renderCell(4)}
                         {renderCell(5)}
                         {renderCell(6)}
@@ -1186,7 +1142,6 @@ export function IndividualRoutineView({
               </table>
             </div>
 
-            {/* Signatures Block */}
             <div className="mt-auto pt-8 grid grid-cols-4 gap-4 text-center text-[11px] font-bold text-black border-t border-zinc-300">
               <div className="space-y-1">
                 <div className="w-32 mx-auto border-b border-black mb-1"></div>

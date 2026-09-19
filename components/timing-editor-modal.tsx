@@ -27,7 +27,7 @@ function TimingEditorContent({
 
   const handleChange = (index: number, newTime: string) => {
     setFormData((prev) =>
-      prev.map((t) => (t.index === index ? { ...t, time: newTime } : t))
+      prev.map((t) => (t.index === index ? { ...t, time: newTime } : t)),
     );
   };
 
@@ -65,7 +65,6 @@ function TimingEditorContent({
     onClose();
   };
 
-  // Find period 1 and period 7 for shift summary
   const p1 = formData.find((t) => t.index === 1);
   const p7 = formData.find((t) => t.index === 7);
   const pBreak = formData.find((t) => t.index === 0);
@@ -73,7 +72,6 @@ function TimingEditorContent({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
       <div className="bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto space-y-4 sm:space-y-5 p-4 sm:p-6">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-primary-subtle text-primary">
@@ -84,7 +82,8 @@ function TimingEditorContent({
                 Class Routine Period Timings
               </h2>
               <p className="text-xs text-foreground-muted">
-                Change timings for each period. Updates are reflected across the routine grid, PDF print, and shift indicators.
+                Change timings for each period. Updates are reflected across the
+                routine grid, PDF print, and shift indicators.
               </p>
             </div>
           </div>
@@ -98,7 +97,6 @@ function TimingEditorContent({
           </button>
         </div>
 
-        {/* Quick Schedule Presets */}
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl bg-background-secondary border border-border text-xs">
           <span className="font-semibold text-foreground flex items-center gap-1">
             Quick Presets:
@@ -126,7 +124,6 @@ function TimingEditorContent({
           </button>
         </div>
 
-        {/* Timings Edit Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {formData.map((timing) => {
@@ -135,18 +132,20 @@ function TimingEditorContent({
               return (
                 <div
                   key={timing.index}
-                  className={`p-3 rounded-2xl border transition-all ${isBreak
-                    ? "bg-amber-500/5 border-amber-500/30 dark:bg-amber-500/10"
-                    : "bg-background-secondary border-border"
-                    }`}
+                  className={`p-3 rounded-2xl border transition-all ${
+                    isBreak
+                      ? "bg-amber-500/5 border-amber-500/30 dark:bg-amber-500/10"
+                      : "bg-background-secondary border-border"
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <span
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold ${isBreak
-                          ? "bg-amber-500 text-white"
-                          : "bg-primary text-primary-foreground"
-                          }`}
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold ${
+                          isBreak
+                            ? "bg-amber-500 text-white"
+                            : "bg-primary text-primary-foreground"
+                        }`}
                       >
                         {isBreak ? "B" : timing.index}
                       </span>
@@ -172,7 +171,6 @@ function TimingEditorContent({
             })}
           </div>
 
-          {/* Live Table Header Preview */}
           <div className="mt-4 p-3 rounded-2xl bg-card border border-border space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-foreground-muted block">
               Live Routine Header Preview
@@ -187,22 +185,31 @@ function TimingEditorContent({
               >
                 <thead>
                   <tr style={{ backgroundColor: "#8DB3E2", color: "#000" }}>
-                    <th style={{ border: "1px solid #000", padding: "4px" }}>Class</th>
+                    <th style={{ border: "1px solid #000", padding: "4px" }}>
+                      Class
+                    </th>
                     {formData.slice(0, 4).map((t) => (
-                      <th key={t.index} style={{ border: "1px solid #000", padding: "4px" }}>
+                      <th
+                        key={t.index}
+                        style={{ border: "1px solid #000", padding: "4px" }}
+                      >
                         <div className="font-bold">{t.name}</div>
                         <div className="font-normal text-[9px]">{t.time}</div>
                       </th>
                     ))}
-                    {/* Break */}
                     {pBreak && (
                       <th style={{ border: "1px solid #000", padding: "4px" }}>
                         <div className="font-bold">Break</div>
-                        <div className="font-normal text-[9px]">({pBreak.time})</div>
+                        <div className="font-normal text-[9px]">
+                          ({pBreak.time})
+                        </div>
                       </th>
                     )}
                     {formData.slice(5).map((t) => (
-                      <th key={t.index} style={{ border: "1px solid #000", padding: "4px" }}>
+                      <th
+                        key={t.index}
+                        style={{ border: "1px solid #000", padding: "4px" }}
+                      >
                         <div className="font-bold">{t.name}</div>
                         <div className="font-normal text-[9px]">{t.time}</div>
                       </th>
@@ -213,18 +220,22 @@ function TimingEditorContent({
             </div>
             <div className="flex items-center justify-between text-[11px] text-foreground-muted pt-1">
               <span>
-                Shift: {p1?.time.split("-")[0] || "7.30"} AM – {p7?.time.split("-")[1] || "12.10"} PM
+                Shift: {p1?.time.split("-")[0] || "7.30"} AM –{" "}
+                {p7?.time.split("-")[1] || "12.10"} PM
               </span>
               <span>Break: {pBreak?.time || "9.55-10:25"}</span>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border">
             <button
               type="button"
               onClick={() => {
-                if (confirm("Reset period timings to official 17 Sep 2026 defaults?")) {
+                if (
+                  confirm(
+                    "Reset period timings to official 17 Sep 2026 defaults?",
+                  )
+                ) {
                   onResetTimings();
                   setFormData(DEFAULT_PERIOD_TIMINGS);
                 }

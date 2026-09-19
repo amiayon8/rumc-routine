@@ -10,13 +10,10 @@ export function useMounted() {
   return React.useSyncExternalStore(
     emptySubscribe,
     () => true,
-    () => false
+    () => false,
   );
 }
 
-/**
- * 3-way Segmented Theme Switcher (Light | System | Dark)
- */
 export function ThemeTogglePill({ className = "" }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
@@ -68,8 +65,8 @@ export function ThemeTogglePill({ className = "" }: { className?: string }) {
                   ? opt.value === "light"
                     ? "text-amber-500"
                     : opt.value === "dark"
-                    ? "text-sky-400"
-                    : "text-primary"
+                      ? "text-sky-400"
+                      : "text-primary"
                   : ""
               }`}
             />
@@ -81,9 +78,6 @@ export function ThemeTogglePill({ className = "" }: { className?: string }) {
   );
 }
 
-/**
- * Compact Icon-only Theme Toggle (Sun/Moon cycle)
- */
 export function ThemeToggleIconButton({
   className = "",
   showTooltip = false,
@@ -114,17 +108,23 @@ export function ThemeToggleIconButton({
       type="button"
       onClick={toggleTheme}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-      title={showTooltip ? `Switch to ${isDark ? "Light" : "Dark"} mode` : undefined}
+      title={
+        showTooltip ? `Switch to ${isDark ? "Light" : "Dark"} mode` : undefined
+      }
       className={`relative inline-flex items-center justify-center w-9 h-9 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground hover:text-primary transition-all duration-200 shadow-xs active:scale-95 cursor-pointer card-glow-hover ${className}`}
     >
       <Sun
         className={`w-4 h-4 text-amber-500 transition-all duration-300 ${
-          isDark ? "rotate-90 scale-0 opacity-0 absolute" : "rotate-0 scale-100 opacity-100"
+          isDark
+            ? "rotate-90 scale-0 opacity-0 absolute"
+            : "rotate-0 scale-100 opacity-100"
         }`}
       />
       <Moon
         className={`w-4 h-4 text-sky-400 transition-all duration-300 ${
-          isDark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0 absolute"
+          isDark
+            ? "rotate-0 scale-100 opacity-100"
+            : "-rotate-90 scale-0 opacity-0 absolute"
         }`}
       />
       <span className="sr-only">Toggle theme</span>

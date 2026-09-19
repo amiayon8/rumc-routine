@@ -653,14 +653,12 @@ export function useRoutineStore() {
                 ? cell.originalSubject || cell.subject
                 : newSubject || "Class";
 
-              // Check if partial replacement in a multi-teacher cell:
               const isPartialMulti =
                 isMultiTeacher &&
                 originalTeacherCode !== rawTeacherCode &&
                 origCodes.includes(originalTeacherCode);
 
               if (isPartialMulti && cell) {
-                // Rule: "If one teacher needs replacement, then replace with any teacher for the required teacher without changing subject."
                 const currentActive = cell.substituteTeacherCode || rawTeacherCode;
                 const tokens = currentActive.split("/").map((c) => c.trim());
                 const matchIdx = tokens.indexOf(originalTeacherCode);
@@ -686,9 +684,7 @@ export function useRoutineStore() {
                 };
               }
 
-              // Rule: "If all teachers of such classes needs change, then replace with a teacher with any subject and subject will be changed too."
-              // Also applies to standard single teacher replacements & new cell assignments
-              const subTeacher =
+            const subTeacher =
                 teachers[substituteTeacherCode] ||
                 memoryTeachers[substituteTeacherCode] ||
                 TEACHER_DIRECTORY[substituteTeacherCode];

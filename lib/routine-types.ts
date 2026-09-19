@@ -1,6 +1,3 @@
-// RUMC English Medium Morning Shift (EMMS) 2026 Official Routine Dataset
-// Parsed directly from "13 Sep_Routine EMMS 2026.pdf"
-
 export interface RoutineCell {
   subject: string;
   teacherCode: string;
@@ -107,10 +104,34 @@ export interface PeriodTiming {
 }
 
 export const DEFAULT_PERIOD_TIMINGS: PeriodTiming[] = [
-  { index: 1, name: "1st Period", time: "7.30-8.10", startTime: "07:30", endTime: "08:10" },
-  { index: 2, name: "2nd Period", time: "8.10-8.45", startTime: "08:10", endTime: "08:45" },
-  { index: 3, name: "3rd Period", time: "8.45-9.20", startTime: "08:45", endTime: "09:20" },
-  { index: 4, name: "4th Period", time: "9.20-9.55", startTime: "09:20", endTime: "09:55" },
+  {
+    index: 1,
+    name: "1st Period",
+    time: "7.30-8.10",
+    startTime: "07:30",
+    endTime: "08:10",
+  },
+  {
+    index: 2,
+    name: "2nd Period",
+    time: "8.10-8.45",
+    startTime: "08:10",
+    endTime: "08:45",
+  },
+  {
+    index: 3,
+    name: "3rd Period",
+    time: "8.45-9.20",
+    startTime: "08:45",
+    endTime: "09:20",
+  },
+  {
+    index: 4,
+    name: "4th Period",
+    time: "9.20-9.55",
+    startTime: "09:20",
+    endTime: "09:55",
+  },
   {
     index: 0,
     name: "Tiffin / Break",
@@ -119,9 +140,27 @@ export const DEFAULT_PERIOD_TIMINGS: PeriodTiming[] = [
     startTime: "09:55",
     endTime: "10:25",
   },
-  { index: 5, name: "5th Period", time: "10.25-11.00", startTime: "10:25", endTime: "11:00" },
-  { index: 6, name: "6th Period", time: "11.00-11.35", startTime: "11:00", endTime: "11:35" },
-  { index: 7, name: "7th Period", time: "11.35-12.10", startTime: "11:35", endTime: "12:10" },
+  {
+    index: 5,
+    name: "5th Period",
+    time: "10.25-11.00",
+    startTime: "10:25",
+    endTime: "11:00",
+  },
+  {
+    index: 6,
+    name: "6th Period",
+    time: "11.00-11.35",
+    startTime: "11:00",
+    endTime: "11:35",
+  },
+  {
+    index: 7,
+    name: "7th Period",
+    time: "11.35-12.10",
+    startTime: "11:35",
+    endTime: "12:10",
+  },
 ];
 
 export const PERIOD_TIMINGS = DEFAULT_PERIOD_TIMINGS;
@@ -213,46 +252,91 @@ export const TEACHER_DIRECTORY: Record<string, TeacherInfo> = {
   ZUR: { code: "ZUR", dept: "Mathematics", subject: "Math" },
 };
 
-/**
- * Checks if a subject string or cell represents an exam, revision session,
- * or non-teaching period that should NOT be counted as an official teaching subject
- * for a teacher from the routine grid.
- */
 export function isNonTeachingSubject(
   subject?: string | null,
-  isExam?: boolean
+  isExam?: boolean,
 ): boolean {
   if (isExam) return true;
   if (!subject) return true;
 
   const normalized = subject.trim().toLowerCase();
   if (!normalized) return true;
-
-  // Catch ALL exams and tests across all subjects (e.g., "Math Exam", "Eng 1 Exam", "Sci Exam", "Ban Exam", "Class Test", etc.)
   if (
     normalized.includes("exam") ||
     normalized.includes("examination") ||
     /\b(test|quiz|assessment|eval|evaluation|midterm|final|ct)\b/i.test(
-      normalized
+      normalized,
     )
   ) {
     return true;
   }
-
-  // Revision / review class matches (e.g., "Rev class", "Rev.", "Revision", "Review")
-  if (
-    /\b(rev|rev\.|revision|review)\b/i.test(
-      normalized
-    )
-  ) {
+  if (/\b(rev|rev\.|revision|review)\b/i.test(normalized)) {
     return true;
   }
-
-  // Non-academic duties or routine placeholders
   if (
     /^(assembly|break|tiffin|recess|free|off|meeting|event|sports(\s*day)?|study|zero\s*period)$/i.test(
-      normalized
+      normalized,
     )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function is11Or12BstdClass(
+  sectionId: string,
+  className?: string,
+  sectionName?: string,
+): boolean {
+  const normalizedId = sectionId.toUpperCase().trim();
+  if (normalizedId === "11BST" || normalizedId === "12BST") {
+    return true;
+  }
+  const grade = (className || "").trim();
+  const section = (sectionName || "").toUpperCase().trim();
+  if (
+    (grade === "Class 11" ||
+      grade === "Class 12" ||
+      grade === "11" ||
+      grade === "12") &&
+    (section === "BST" || section === "BSTD")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isPhysicsChemistryMathBiologyTeacher(
+  teacher?: TeacherInfo | null,
+): boolean {
+  if (!teacher) {
+    return false;
+  }
+  const department = (teacher.dept || "").toLowerCase().trim();
+  const subject = (teacher.subject || "").toLowerCase().trim();
+
+  if (department === "statistics" || department === "technical") {
+    return false;
+  }
+
+  if (
+    department === "physics" ||
+    department === "chemistry" ||
+    department === "mathematics" ||
+    department === "math" ||
+    department === "biology"
+  ) {
+    return true;
+  }
+
+  if (
+    /\bphysics\b/i.test(subject) ||
+    /\bchemistry\b/i.test(subject) ||
+    /\b(mathematics|h\.math|higher\s*math)\b/i.test(subject) ||
+    (/\bmath\b/i.test(subject) &&
+      !/\b(statistics|engineering\s*drw)\b/i.test(subject)) ||
+    /\bbiology\b/i.test(subject)
   ) {
     return true;
   }

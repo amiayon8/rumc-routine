@@ -22,11 +22,15 @@ export interface TeacherManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   teachers: Record<string, TeacherInfo>;
-  onAddTeacher: (teacher: { code: string; dept: string; subject: string }) => boolean;
+  onAddTeacher: (teacher: {
+    code: string;
+    dept: string;
+    subject: string;
+  }) => boolean;
   onRemoveTeacher: (code: string) => void;
   onEditTeacher: (
     oldCode: string,
-    updated: { code: string; dept: string; subject: string }
+    updated: { code: string; dept: string; subject: string },
   ) => boolean;
   onResetTeachers?: () => void;
 }
@@ -80,16 +84,13 @@ function TeacherManagerModalContent({
   onResetTeachers,
 }: Omit<TeacherManagerModalProps, "isOpen">) {
   const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [selectedDeptFilter, setSelectedDeptFilter] = React.useState<string>("All");
-
-  // Add new faculty form state
+  const [selectedDeptFilter, setSelectedDeptFilter] =
+    React.useState<string>("All");
   const [newCode, setNewCode] = React.useState<string>("");
   const [newDept, setNewDept] = React.useState<string>("Math");
   const [newSubject, setNewSubject] = React.useState<string>("");
   const [formError, setFormError] = React.useState<string | null>(null);
   const [formSuccess, setFormSuccess] = React.useState<string | null>(null);
-
-  // In-line editing state
   const [editingCode, setEditingCode] = React.useState<string | null>(null);
   const [editFormData, setEditFormData] = React.useState<{
     code: string;
@@ -97,16 +98,12 @@ function TeacherManagerModalContent({
     subject: string;
   }>({ code: "", dept: "", subject: "" });
   const [editError, setEditError] = React.useState<string | null>(null);
-
-  // Deletion confirmation state
-  const [confirmDeleteCode, setConfirmDeleteCode] = React.useState<string | null>(null);
-
-  // Convert teachers record to array
+  const [confirmDeleteCode, setConfirmDeleteCode] = React.useState<
+    string | null
+  >(null);
   const teacherList = React.useMemo(() => {
     return Object.values(teachers).sort((a, b) => a.code.localeCompare(b.code));
   }, [teachers]);
-
-  // Unique departments for filter
   const departmentsList = React.useMemo(() => {
     const set = new Set<string>();
     teacherList.forEach((t) => {
@@ -114,8 +111,6 @@ function TeacherManagerModalContent({
     });
     return ["All", ...Array.from(set).sort()];
   }, [teacherList]);
-
-  // Filtered teachers
   const filteredTeachers = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return teacherList.filter((t) => {
@@ -132,8 +127,6 @@ function TeacherManagerModalContent({
       return matchesSearch && matchesDept;
     });
   }, [teacherList, searchQuery, selectedDeptFilter]);
-
-  // Parse subject string into discrete variation tags
   const parseSubjectTags = (subjStr: string) => {
     if (!subjStr) return [];
     return subjStr
@@ -157,7 +150,9 @@ function TeacherManagerModalContent({
     }
 
     if (teachers[code]) {
-      setFormError(`Teacher acronym "${code}" already exists in the directory.`);
+      setFormError(
+        `Teacher acronym "${code}" already exists in the directory.`,
+      );
       return;
     }
 
@@ -210,7 +205,9 @@ function TeacherManagerModalContent({
     }
 
     if (newTargetCode !== oldCode && teachers[newTargetCode]) {
-      setEditError(`Acronym "${newTargetCode}" is already taken by another teacher.`);
+      setEditError(
+        `Acronym "${newTargetCode}" is already taken by another teacher.`,
+      );
       return;
     }
 
@@ -243,7 +240,6 @@ function TeacherManagerModalContent({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2.5 sm:p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative flex max-h-[94vh] w-full max-w-5xl flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
@@ -257,7 +253,8 @@ function TeacherManagerModalContent({
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Manage faculty acronyms and subject variations across classes for routines and smart substitutions.
+                Manage faculty acronyms and subject variations across classes
+                for routines and smart substitutions.
               </p>
             </div>
           </div>
@@ -269,9 +266,7 @@ function TeacherManagerModalContent({
           </button>
         </div>
 
-        {/* Content Body: Two columns (Left: Add Form & Tips, Right: Search & Teacher List) */}
         <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
-          {/* Left Column: Add New Teacher Form */}
           <div className="w-full md:w-80 lg:w-96 border-b md:border-b-0 md:border-r border-border bg-muted/20 p-4 sm:p-5 overflow-y-auto max-h-64 md:max-h-none">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <Plus className="h-4 w-4 text-primary" />
@@ -281,7 +276,8 @@ function TeacherManagerModalContent({
             <form onSubmit={handleAddTeacher} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Teacher Acronym / Code <span className="text-rose-500">*</span>
+                  Teacher Acronym / Code{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -319,7 +315,8 @@ function TeacherManagerModalContent({
 
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Subjects / Class Variations <span className="text-rose-500">*</span>
+                  Subjects / Class Variations{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={2}
@@ -331,11 +328,11 @@ function TeacherManagerModalContent({
                 <div className="mt-1 flex items-start gap-1 text-[11px] text-muted-foreground">
                   <Info className="h-3.5 w-3.5 shrink-0 text-primary mt-0.5" />
                   <span>
-                    Separate with commas. Handles naming differences across grades (e.g. Math vs H.Math).
+                    Separate with commas. Handles naming differences across
+                    grades (e.g. Math vs H.Math).
                   </span>
                 </div>
 
-                {/* Real-time preview of parsed subject pills */}
                 {newSubject.trim() && (
                   <div className="mt-2.5 flex flex-wrap gap-1">
                     {parseSubjectTags(newSubject).map((tag, idx) => (
@@ -374,24 +371,24 @@ function TeacherManagerModalContent({
               </button>
             </form>
 
-            {/* Quick Guidance Box */}
             <div className="mt-6 rounded-xl border border-border/80 bg-background/50 p-3.5 text-xs space-y-2">
               <div className="font-semibold text-foreground flex items-center gap-1.5">
                 <BookOpen className="h-3.5 w-3.5 text-primary" />
                 <span>Class Subject Variations</span>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Teachers often teach different subject aliases in different grades (e.g., <strong>General Math</strong> in Class 8 vs <strong>Higher Math</strong> in Class 9).
+                Teachers often teach different subject aliases in different
+                grades (e.g., <strong>General Math</strong> in Class 8 vs{" "}
+                <strong>Higher Math</strong> in Class 9).
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                Entering variations ensures the intelligent substitution engine matches them with full subject compatibility.
+                Entering variations ensures the intelligent substitution engine
+                matches them with full subject compatibility.
               </p>
             </div>
           </div>
 
-          {/* Right Column: Search, Filter & Faculty Directory List */}
           <div className="flex flex-1 flex-col overflow-hidden p-5">
-            {/* Search and Filters Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -419,7 +416,6 @@ function TeacherManagerModalContent({
               </div>
             </div>
 
-            {/* Teacher List Cards */}
             <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
               {filteredTeachers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
@@ -534,7 +530,6 @@ function TeacherManagerModalContent({
                       key={t.code}
                       className="group flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-xl border border-border bg-card hover:border-primary/40 p-3 px-4 shadow-sm hover:shadow transition-all gap-3"
                     >
-                      {/* Left: Code badge and Dept */}
                       <div className="flex items-center gap-3.5 min-w-[150px]">
                         <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 font-mono font-bold text-sm text-primary">
                           {t.code}
@@ -547,7 +542,6 @@ function TeacherManagerModalContent({
                         </div>
                       </div>
 
-                      {/* Middle: Subject Variations Badges */}
                       <div className="flex-1 flex flex-wrap items-center gap-1.5">
                         {subjectTags.map((subj, idx) => (
                           <span
@@ -560,7 +554,6 @@ function TeacherManagerModalContent({
                         ))}
                       </div>
 
-                      {/* Right: Actions (Edit & Delete) */}
                       <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
                         {isConfirmingDelete ? (
                           <div className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2.5 py-1">
@@ -605,10 +598,10 @@ function TeacherManagerModalContent({
               )}
             </div>
 
-            {/* Bottom Info Bar & Reset Option */}
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                Showing {filteredTeachers.length} of {teacherList.length} faculty members
+                Showing {filteredTeachers.length} of {teacherList.length}{" "}
+                faculty members
               </span>
 
               {onResetTeachers && (
@@ -616,7 +609,7 @@ function TeacherManagerModalContent({
                   onClick={() => {
                     if (
                       window.confirm(
-                        "Are you sure you want to reset the teacher directory back to default faculty members?"
+                        "Are you sure you want to reset the teacher directory back to default faculty members?",
                       )
                     ) {
                       onResetTeachers();
@@ -632,10 +625,10 @@ function TeacherManagerModalContent({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between border-t border-border bg-muted/40 px-6 py-3">
           <div className="text-xs text-muted-foreground">
-            All additions and modifications are saved automatically to your device.
+            All additions and modifications are saved automatically to your
+            device.
           </div>
           <button
             onClick={onClose}

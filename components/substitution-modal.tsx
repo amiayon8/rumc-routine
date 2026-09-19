@@ -11,6 +11,8 @@ import {
   DEFAULT_PERIOD_TIMINGS,
   PeriodTiming,
   isNonTeachingSubject,
+  is11Or12BstdClass,
+  isPhysicsChemistryMathBiologyTeacher,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
@@ -228,7 +230,6 @@ export function SubstitutionManager({
       }
     });
 
-    // Identify codes from tokens that evolved (e.g. MS -> MSF: remove MS)
     const codesToRemove: string[] = [];
     Object.keys(oldMatches).forEach((keyStr) => {
       const idx = Number(keyStr);
@@ -726,8 +727,15 @@ export function SubstitutionManager({
 
   const candidateTeachersForModal = React.useMemo(() => {
     if (!manualEditModal) return [];
+    const isBstdClass = is11Or12BstdClass(manualEditModal.sectionId);
     return allTeachersList
-      .filter((t) => t.code !== manualEditModal.originalTeacherCode)
+      .filter((t) => {
+        if (t.code === manualEditModal.originalTeacherCode) return false;
+        if (isBstdClass && isPhysicsChemistryMathBiologyTeacher(t)) {
+          return false;
+        }
+        return true;
+      })
       .map((t) => {
         const load = teacherLoads[t.code]?.dailyLoads[selectedDay] || 0;
         const isOccupied = occupiedTeachersInSelectedModalPeriod.has(t.code);
@@ -868,12 +876,24 @@ export function SubstitutionManager({
     if (!manualEditModal || !manualEditModal.substituteTeacherCode.trim())
       return;
 
+    const substituteCode = manualEditModal.substituteTeacherCode.trim();
+    const substituteTeacher = teacherDir[substituteCode];
+    if (
+      is11Or12BstdClass(manualEditModal.sectionId) &&
+      isPhysicsChemistryMathBiologyTeacher(substituteTeacher)
+    ) {
+      alert(
+        "Physics, Chemistry, Math, and Biology teachers cannot take Class 11/12 Business Studies classes.",
+      );
+      return;
+    }
+
     onApplySubstitution(
       selectedDay,
       manualEditModal.periodIndex,
       manualEditModal.sectionId,
       manualEditModal.originalTeacherCode,
-      manualEditModal.substituteTeacherCode.trim(),
+      substituteCode,
       manualEditModal.reason?.trim() || undefined,
       manualEditModal.subject.trim() || undefined,
     );
@@ -930,7 +950,6 @@ export function SubstitutionManager({
 
   return (
     <div className="space-y-6">
-      {/* Success Notification Banner */}
       {successNotice && (
         <div className="p-4 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/30 text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3 text-sm sm:text-base font-bold shadow-xs animate-in fade-in">
           <div className="flex items-center gap-3">
@@ -1348,7 +1367,6 @@ export function SubstitutionManager({
                 </div>
               </div>
 
-              {/* Pool Search & Auto-Select Bar */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="relative flex-1 sm:w-72 md:w-80">
                   <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-subtle" />
@@ -2315,7 +2333,6 @@ export function SubstitutionManager({
           )}
         </div>
 
-        {/* Duty Roster Confirmation Modal */}
         {isConfirmRosterOpen && (
           <div
             role="dialog"
@@ -2323,7 +2340,6 @@ export function SubstitutionManager({
             className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
           >
             <div className="bg-card border-2 border-border shadow-2xl rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-              {/* Modal Header */}
               <div className="p-5 sm:p-6 border-b-2 border-border flex items-start justify-between gap-4 bg-background-secondary/50">
                 <div className="flex items-center gap-3">
                   <div className="p-3 rounded-2xl bg-primary-subtle text-primary">
@@ -2350,9 +2366,7 @@ export function SubstitutionManager({
                 </button>
               </div>
 
-              {/* Modal Body */}
               <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
-                {/* Summary Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-3 rounded-2xl bg-background-secondary border border-border text-center">
                     <div className="text-xs font-bold text-foreground-muted uppercase tracking-wider">
@@ -2394,7 +2408,6 @@ export function SubstitutionManager({
                   </div>
                 </div>
 
-                {/* Warning if unassigned */}
                 {plannedRoster.some((r) => !r.assignedTeacherCode) && (
                   <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-800 dark:text-amber-300 text-sm font-bold flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
@@ -2405,7 +2418,6 @@ export function SubstitutionManager({
                   </div>
                 )}
 
-                {/* Roster Table */}
                 <div className="rounded-2xl border-2 border-border overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs sm:text-sm">
@@ -2532,7 +2544,6 @@ export function SubstitutionManager({
                 </div>
               </div>
 
-              {/* Modal Footer Actions */}
               <div className="p-5 sm:p-6 border-t-2 border-border bg-background-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="text-xs sm:text-sm text-foreground-muted font-medium">
                   Changes will be saved and reflected across all routine
@@ -2780,6 +2791,11 @@ export function SubstitutionManager({
                       Free teachers listed first
                     </span>
                   </label>
+                  {is11Or12BstdClass(manualEditModal.sectionId) && (
+                    <div className="mb-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
+                      Class 11/12 Business Studies: Physics, Chemistry, Math, and Biology faculty are excluded.
+                    </div>
+                  )}
                   <select
                     value={manualEditModal.substituteTeacherCode}
                     onChange={(e) =>

@@ -12,7 +12,7 @@ import { getTodaysWeekday } from "../lib/routine-types";
 import { School } from "lucide-react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = React.useState<ViewTab>("routine-pdf");
+  const [activeTab, setActiveTab] = React.useState<ViewTab>("substitution");
   const [currentDay, setCurrentDay] = React.useState<string>(getTodaysWeekday);
 
   const {

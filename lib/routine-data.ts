@@ -5,7 +5,7 @@ export * from "./routine-types";
 export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
   {
     "day": "Sunday",
-    "dateFormatted": "13 September 2026",
+    "dateFormatted": "20 September 2026",
     "sections": [
       {
         "sectionId": "6A",
@@ -588,8 +588,8 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "isActive": true,
         "periods": [
           {
-            "subject": "Biology",
-            "teacherCode": "FAJ",
+            "subject": "H.Math",
+            "teacherCode": "SZK",
             "room": "402"
           },
           {
@@ -1064,7 +1064,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
   },
   {
     "day": "Monday",
-    "dateFormatted": "14 September 2026",
+    "dateFormatted": "21 September 2026",
     "sections": [
       {
         "sectionId": "6A",
@@ -1391,13 +1391,13 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "isActive": true,
         "periods": [
           {
-            "subject": "Rst",
-            "teacherCode": "AAB",
+            "subject": "Math",
+            "teacherCode": "AA",
             "room": "303"
           },
           {
-            "subject": "Math",
-            "teacherCode": "AA",
+            "subject": "Rst",
+            "teacherCode": "AAB",
             "room": "303"
           },
           {
@@ -1676,7 +1676,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Ban",
-            "teacherCode": "MHM",
+            "teacherCode": "MS",
             "room": "402"
           }
         ]
@@ -1775,7 +1775,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "periods": [
           {
             "subject": "H.Math",
-            "teacherCode": "AA",
+            "teacherCode": "SZK",
             "room": "501"
           },
           {
@@ -1795,7 +1795,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Physics",
-            "teacherCode": "ZI",
+            "teacherCode": "TU",
             "room": "501"
           },
           {
@@ -1837,13 +1837,13 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "502"
           },
           {
-            "subject": "Ban",
-            "teacherCode": "MN",
+            "subject": "Physics",
+            "teacherCode": "ZI",
             "room": "502"
           },
           {
-            "subject": "Physics",
-            "teacherCode": "NC",
+            "subject": "Ban",
+            "teacherCode": "MN",
             "room": "502"
           },
           {
@@ -1871,7 +1871,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "H.Math",
-            "teacherCode": "SZK",
+            "teacherCode": "AA",
             "room": "503"
           },
           {
@@ -2119,7 +2119,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
   },
   {
     "day": "Tuesday",
-    "dateFormatted": "15 September 2026",
+    "dateFormatted": "22 September 2026",
     "sections": [
       {
         "sectionId": "6A",
@@ -2700,8 +2700,8 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "isActive": true,
         "periods": [
           {
-            "subject": "H.Math",
-            "teacherCode": "SZK",
+            "subject": "Biology",
+            "teacherCode": "FAJ",
             "room": "402"
           },
           {
@@ -2832,17 +2832,17 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "periods": [
           {
             "subject": "Bio/Stat/Drw",
-            "teacherCode": "FAJ/YK/AAN",
-            "room": "501"
-          },
-          {
-            "subject": "H.Math",
-            "teacherCode": "AA",
+            "teacherCode": "MSF/YK/AAN",
             "room": "501"
           },
           {
             "subject": "Eng",
             "teacherCode": "SM",
+            "room": "501"
+          },
+          {
+            "subject": "H.Math",
+            "teacherCode": "SZK",
             "room": "501"
           },
           {
@@ -3176,7 +3176,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
   },
   {
     "day": "Wednesday",
-    "dateFormatted": "16 September 2026",
+    "dateFormatted": "23 September 2026",
     "sections": [
       {
         "sectionId": "6A",
@@ -3263,6 +3263,11 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "isActive": true,
         "periods": [
           {
+            "subject": "Library",
+            "teacherCode": "AAM",
+            "room": "Library"
+          },
+          {
             "subject": "Rst",
             "teacherCode": "AB",
             "room": "203"
@@ -3271,11 +3276,6 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "subject": "Sci",
             "teacherCode": "SRY",
             "room": "203"
-          },
-          {
-            "subject": "Library",
-            "teacherCode": "AAM",
-            "room": "Library"
           },
           {
             "subject": "Ban",
@@ -3504,7 +3504,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "periods": [
           {
             "subject": "Sci",
-            "teacherCode": "ZC",
+            "teacherCode": "MZI",
             "room": "303"
           },
           {
@@ -3735,9 +3735,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "401"
           },
           {
-            "subject": "Math",
-            "teacherCode": "AA",
-            "room": "401"
+            "subject": "ICT",
+            "teacherCode": "RAI",
+            "room": "Lab 3"
           },
           {
             "subject": "Physics",
@@ -3745,9 +3745,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "401"
           },
           {
-            "subject": "ICT",
-            "teacherCode": "RAI",
-            "room": "Lab 3"
+            "subject": "Math",
+            "teacherCode": "AA",
+            "room": "401"
           }
         ]
       },
@@ -3905,7 +3905,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Physics",
-            "teacherCode": "NC",
+            "teacherCode": "TU",
             "room": "501"
           },
           {
@@ -3952,9 +3952,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "502"
           },
           {
-            "subject": "ICT",
-            "teacherCode": "RAI",
-            "room": "Lab 3"
+            "subject": "Stat/Drw",
+            "teacherCode": "YK/AAN",
+            "room": "502"
           },
           {
             "subject": "Physics",
@@ -3962,9 +3962,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "502"
           },
           {
-            "subject": "Stat/Drw",
-            "teacherCode": "YK/AAN",
-            "room": "502"
+            "subject": "ICT",
+            "teacherCode": "RAI",
+            "room": "Lab 3"
           }
         ]
       },
@@ -3976,7 +3976,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "periods": [
           {
             "subject": "Chemistry",
-            "teacherCode": "MZI",
+            "teacherCode": "ZC",
             "room": "503"
           },
           {
@@ -3991,7 +3991,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Physics",
-            "teacherCode": "TU",
+            "teacherCode": "NC",
             "room": "503"
           },
           {
@@ -4233,7 +4233,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
   },
   {
     "day": "Thursday",
-    "dateFormatted": "17 September 2026",
+    "dateFormatted": "24 September 2026",
     "sections": [
       {
         "sectionId": "6A",
@@ -4307,7 +4307,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Ban",
-            "teacherCode": "MHM",
+            "teacherCode": "DR",
             "room": "202"
           },
           null
@@ -4320,13 +4320,13 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
         "isActive": true,
         "periods": [
           {
-            "subject": "Math",
-            "teacherCode": "TIM",
+            "subject": "Ban",
+            "teacherCode": "MHM",
             "room": "203"
           },
           {
-            "subject": "Ban",
-            "teacherCode": "MHM",
+            "subject": "Math",
+            "teacherCode": "TIM",
             "room": "203"
           },
           {
@@ -4365,7 +4365,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Ban",
-            "teacherCode": "DR",
+            "teacherCode": "MHM",
             "room": "204"
           },
           {
@@ -4380,13 +4380,13 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "204"
           },
           {
-            "subject": "Rst",
-            "teacherCode": "AB",
+            "subject": "Sci",
+            "teacherCode": "FAJ",
             "room": "204"
           },
           {
-            "subject": "Sci",
-            "teacherCode": "FAJ",
+            "subject": "Rst",
+            "teacherCode": "AB",
             "room": "204"
           },
           null
@@ -4532,8 +4532,8 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "302"
           },
           {
-            "subject": "Sci",
-            "teacherCode": "ZC",
+            "subject": "Ban",
+            "teacherCode": "DR",
             "room": "302"
           },
           {
@@ -4547,8 +4547,8 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "302"
           },
           {
-            "subject": "Ban",
-            "teacherCode": "DR",
+            "subject": "Sci",
+            "teacherCode": "MZI",
             "room": "302"
           },
           null
@@ -4842,7 +4842,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Ban",
-            "teacherCode": "MS",
+            "teacherCode": "MHM",
             "room": "402"
           },
           {
@@ -4977,7 +4977,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "Bio/Stat/Drw",
-            "teacherCode": "MSF/YK/AAN",
+            "teacherCode": "FAJ/YK/AAN",
             "room": "501"
           }
         ]
@@ -5019,8 +5019,8 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "Lab 3"
           },
           {
-            "subject": "Stat-NA / Eng&Drw",
-            "teacherCode": "AAN",
+            "subject": "Stat/Drw",
+            "teacherCode": "YK/AAN",
             "room": "502"
           }
         ]
@@ -5063,7 +5063,7 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
           },
           {
             "subject": "H.Math",
-            "teacherCode": "SZK",
+            "teacherCode": "AA",
             "room": "503"
           }
         ]
@@ -5223,9 +5223,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "isPractical": true
           },
           {
-            "subject": "ICT",
-            "teacherCode": "RAI",
-            "room": "Lab 3"
+            "subject": "Chemistry",
+            "teacherCode": "ZC",
+            "room": "603"
           },
           {
             "subject": "H.Math",
@@ -5238,9 +5238,9 @@ export const DEFAULT_ROUTINE_DATA: DayRoutine[] = [
             "room": "603"
           },
           {
-            "subject": "Chemistry",
-            "teacherCode": "MZI",
-            "room": "603"
+            "subject": "ICT",
+            "teacherCode": "RAI",
+            "room": "Lab 3"
           }
         ]
       },

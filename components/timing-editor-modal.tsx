@@ -227,7 +227,7 @@ function TimingEditorContent({
             <button
               type="button"
               onClick={() => {
-                if (confirm("Reset period timings to official 13 Sep 2026 defaults?")) {
+                if (confirm("Reset period timings to official 17 Sep 2026 defaults?")) {
                   onResetTimings();
                   setFormData(DEFAULT_PERIOD_TIMINGS);
                 }

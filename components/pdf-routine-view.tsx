@@ -452,7 +452,7 @@ export function PdfRoutineView({
                     setIsToolsOpen(false);
                     if (
                       confirm(
-                        "Reset routine to original 13 Sep 2026 PDF defaults?",
+                        "Reset routine to official 17 Sep 2026 PDF defaults?",
                       )
                     ) {
                       onResetAll();

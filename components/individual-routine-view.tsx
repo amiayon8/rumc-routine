@@ -341,7 +341,7 @@ export function IndividualRoutineView({
                       const load = teacherTotalLoads[code]?.total || 0;
                       return (
                         <option key={code} value={code}>
-                          {code} ({t?.dept || "General"}) • {load} periods/wk
+                          {code} ({t?.dept || "General"}) • {load} periods/week
                         </option>
                       );
                     })}
@@ -1319,7 +1319,9 @@ export function IndividualRoutineView({
                           substituteTeacherCode: undefined,
                           substituteReason: undefined,
                           substituteSubject: undefined,
-                          subject: editingCell.cell!.originalSubject || editingCell.cell!.subject,
+                          subject:
+                            editingCell.cell!.originalSubject ||
+                            editingCell.cell!.subject,
                           originalSubject: undefined,
                         },
                       );

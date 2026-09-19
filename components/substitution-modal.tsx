@@ -88,7 +88,7 @@ export function SubstitutionManager({
     string[]
   >([]);
   const [useCustomPool, setUseCustomPool] = React.useState<boolean>(false);
-  const [maxDailyLoad, setMaxDailyLoad] = React.useState<number>(5);
+  const [maxDailyLoad, setMaxDailyLoad] = React.useState<number>(4);
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [poolSearchQuery, setPoolSearchQuery] = React.useState<string>("");
   const [activeAutoAbsentCodes, setActiveAutoAbsentCodes] = React.useState<
@@ -453,10 +453,10 @@ export function SubstitutionManager({
       const suggestedSubSubject = isCoTeachingPartial
         ? req.originalSubject || req.subject
         : selectedCandidate?.suggestedSubject ||
-        selectedCandidate?.teacher.subject ||
-        selectedCandidate?.teacher.dept ||
-        req.originalSubject ||
-        req.subject;
+          selectedCandidate?.teacher.subject ||
+          selectedCandidate?.teacher.dept ||
+          req.originalSubject ||
+          req.subject;
       const effectiveSubject =
         manualSubjects[req.id] !== undefined
           ? manualSubjects[req.id]
@@ -596,7 +596,9 @@ export function SubstitutionManager({
       if (req.isMultiTeacher && !req.isAllAbsent) {
         if (map.has(key)) {
           const existing = map.get(key)!;
-          const tokens = existing.substituteTeacherCode.split("/").map((c) => c.trim());
+          const tokens = existing.substituteTeacherCode
+            .split("/")
+            .map((c) => c.trim());
           const matchIdx = tokens.indexOf(req.originalTeacher.code);
           if (matchIdx !== -1) {
             tokens[matchIdx] = assignedCode;
@@ -716,7 +718,10 @@ export function SubstitutionManager({
 
   const occupiedTeachersInSelectedModalPeriod = React.useMemo(() => {
     if (!manualEditModal) return new Set<string>();
-    return getOccupiedTeachersInPeriod(currentDayRoutine, manualEditModal.periodIndex);
+    return getOccupiedTeachersInPeriod(
+      currentDayRoutine,
+      manualEditModal.periodIndex,
+    );
   }, [currentDayRoutine, manualEditModal?.periodIndex]);
 
   const candidateTeachersForModal = React.useMemo(() => {
@@ -737,10 +742,18 @@ export function SubstitutionManager({
         if (a.load !== b.load) return a.load - b.load;
         return a.teacher.code.localeCompare(b.teacher.code);
       });
-  }, [allTeachersList, manualEditModal, selectedDay, teacherLoads, occupiedTeachersInSelectedModalPeriod]);
+  }, [
+    allTeachersList,
+    manualEditModal,
+    selectedDay,
+    teacherLoads,
+    occupiedTeachersInSelectedModalPeriod,
+  ]);
 
   const handleOpenManualModal = (sectionId: string, periodIndex: number) => {
-    const sec = currentDayRoutine.sections.find((s) => s.sectionId === sectionId);
+    const sec = currentDayRoutine.sections.find(
+      (s) => s.sectionId === sectionId,
+    );
     const cell = sec?.periods[periodIndex];
     const subData = substitutedMap.get(`${sectionId}_${periodIndex}`);
 
@@ -753,7 +766,8 @@ export function SubstitutionManager({
         originalTeacherCode: subData.originalTeacherCode,
         substituteTeacherCode: subData.substituteTeacherCode,
         subject: subData.subject,
-        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
+        originalSubject:
+          subData.originalSubject || cell?.originalSubject || cell?.subject,
         reason: subData.reason || "",
       });
     } else {
@@ -778,58 +792,81 @@ export function SubstitutionManager({
     handleOpenManualModal(defaultSection, 0);
   };
 
-  const handleModalSectionOrPeriodChange = (newSectionId: string, newPeriodIndex: number) => {
-    const sec = currentDayRoutine.sections.find((s) => s.sectionId === newSectionId);
+  const handleModalSectionOrPeriodChange = (
+    newSectionId: string,
+    newPeriodIndex: number,
+  ) => {
+    const sec = currentDayRoutine.sections.find(
+      (s) => s.sectionId === newSectionId,
+    );
     const cell = sec?.periods[newPeriodIndex];
     const subData = substitutedMap.get(`${newSectionId}_${newPeriodIndex}`);
 
     if (subData) {
-      setManualEditModal((prev) => prev ? ({
-        ...prev,
-        isNew: false,
-        sectionId: newSectionId,
-        periodIndex: newPeriodIndex,
-        originalTeacherCode: subData.originalTeacherCode,
-        substituteTeacherCode: subData.substituteTeacherCode,
-        subject: subData.subject,
-        originalSubject: subData.originalSubject || cell?.originalSubject || cell?.subject,
-        reason: subData.reason || "",
-      }) : null);
+      setManualEditModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              isNew: false,
+              sectionId: newSectionId,
+              periodIndex: newPeriodIndex,
+              originalTeacherCode: subData.originalTeacherCode,
+              substituteTeacherCode: subData.substituteTeacherCode,
+              subject: subData.subject,
+              originalSubject:
+                subData.originalSubject ||
+                cell?.originalSubject ||
+                cell?.subject,
+              reason: subData.reason || "",
+            }
+          : null,
+      );
     } else {
       const origTeacher = cell?.teacherCode || "";
       const origSubject = cell?.subject || "";
-      setManualEditModal((prev) => prev ? ({
-        ...prev,
-        isNew: true,
-        sectionId: newSectionId,
-        periodIndex: newPeriodIndex,
-        originalTeacherCode: origTeacher,
-        substituteTeacherCode: "",
-        subject: origSubject,
-        originalSubject: origSubject,
-        reason: "",
-      }) : null);
+      setManualEditModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              isNew: true,
+              sectionId: newSectionId,
+              periodIndex: newPeriodIndex,
+              originalTeacherCode: origTeacher,
+              substituteTeacherCode: "",
+              subject: origSubject,
+              originalSubject: origSubject,
+              reason: "",
+            }
+          : null,
+      );
     }
   };
 
   const handleModalSubstituteTeacherChange = (teacherCode: string) => {
     const teacher = teacherDir[teacherCode];
     const suggestedSubject =
-      (teacher?.subject && !isNonTeachingSubject(teacher.subject) ? teacher.subject : undefined) ||
+      (teacher?.subject && !isNonTeachingSubject(teacher.subject)
+        ? teacher.subject
+        : undefined) ||
       teacher?.dept ||
       manualEditModal?.originalSubject ||
       manualEditModal?.subject ||
       "";
-    setManualEditModal((prev) => prev ? ({
-      ...prev,
-      substituteTeacherCode: teacherCode,
-      subject: suggestedSubject,
-    }) : null);
+    setManualEditModal((prev) =>
+      prev
+        ? {
+            ...prev,
+            substituteTeacherCode: teacherCode,
+            subject: suggestedSubject,
+          }
+        : null,
+    );
   };
 
   const handleSaveManualEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualEditModal || !manualEditModal.substituteTeacherCode.trim()) return;
+    if (!manualEditModal || !manualEditModal.substituteTeacherCode.trim())
+      return;
 
     onApplySubstitution(
       selectedDay,
@@ -845,10 +882,13 @@ export function SubstitutionManager({
 
   const handleRevertManualEdit = () => {
     if (!manualEditModal) return;
-    onRevertSubstitution(selectedDay, manualEditModal.periodIndex, manualEditModal.sectionId);
+    onRevertSubstitution(
+      selectedDay,
+      manualEditModal.periodIndex,
+      manualEditModal.sectionId,
+    );
     setManualEditModal(null);
   };
-
 
   const filteredAbsentTeachers = React.useMemo(() => {
     const tokens = parseTeacherCodesFromInput(searchQuery).map((t) =>
@@ -1032,20 +1072,22 @@ export function SubstitutionManager({
                 <button
                   type="button"
                   onClick={() => setUseCustomPool(false)}
-                  className={`h-11 sm:h-12 px-4 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer flex-1 ${!useCustomPool
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-background-secondary text-foreground-muted hover:text-foreground border border-border"
-                    }`}
+                  className={`h-11 sm:h-12 px-4 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer flex-1 ${
+                    !useCustomPool
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-background-secondary text-foreground-muted hover:text-foreground border border-border"
+                  }`}
                 >
                   All Faculty
                 </button>
                 <button
                   type="button"
                   onClick={() => setUseCustomPool(true)}
-                  className={`h-11 sm:h-12 px-4 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer flex-1 ${useCustomPool
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-background-secondary text-foreground-muted hover:text-foreground border border-border"
-                    }`}
+                  className={`h-11 sm:h-12 px-4 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer flex-1 ${
+                    useCustomPool
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-background-secondary text-foreground-muted hover:text-foreground border border-border"
+                  }`}
                 >
                   Custom ({allowedReplacementCodes.length})
                 </button>
@@ -1088,7 +1130,9 @@ export function SubstitutionManager({
                 {activeAutoAbsentCodes.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border-2 border-emerald-500/30 px-3.5 py-2 rounded-2xl shadow-xs animate-in fade-in">
                     <Check className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>Auto-selected: {activeAutoAbsentCodes.join(", ")}</span>
+                    <span>
+                      Auto-selected: {activeAutoAbsentCodes.join(", ")}
+                    </span>
                   </div>
                 )}
 
@@ -1105,7 +1149,8 @@ export function SubstitutionManager({
                 </select>
 
                 <div className="text-xs sm:text-sm font-bold text-foreground-muted px-3 py-2 rounded-xl bg-card border border-border shadow-xs">
-                  {filteredAbsentTeachers.length} of {allTeachersList.length} faculty
+                  {filteredAbsentTeachers.length} of {allTeachersList.length}{" "}
+                  faculty
                 </div>
 
                 {absentTeacherCodes.length > 0 && (
@@ -1159,7 +1204,8 @@ export function SubstitutionManager({
                                 </span>
                               ) : (
                                 <span>
-                                  Absent in {absentPeriods.length} period{absentPeriods.length > 1 ? "s" : ""}
+                                  Absent in {absentPeriods.length} period
+                                  {absentPeriods.length > 1 ? "s" : ""}
                                 </span>
                               )}
                             </span>
@@ -1178,10 +1224,11 @@ export function SubstitutionManager({
                                   setTeacherFullDayAbsent(code);
                                 }
                               }}
-                              className={`px-3 py-1.5 text-xs sm:text-sm rounded-xl font-bold border-2 transition-colors cursor-pointer ${isFull
-                                ? "bg-red-600 text-white border-red-700 shadow-xs"
-                                : "bg-background-secondary text-foreground-muted border-border hover:text-foreground"
-                                }`}
+                              className={`px-3 py-1.5 text-xs sm:text-sm rounded-xl font-bold border-2 transition-colors cursor-pointer ${
+                                isFull
+                                  ? "bg-red-600 text-white border-red-700 shadow-xs"
+                                  : "bg-background-secondary text-foreground-muted border-border hover:text-foreground"
+                              }`}
                             >
                               {isFull ? "Full Day" : "Specific Periods"}
                             </button>
@@ -1212,14 +1259,16 @@ export function SubstitutionManager({
                                 onClick={() =>
                                   toggleTeacherPeriodAbsence(code, pIdx)
                                 }
-                                className={`min-w-[42px] h-9 px-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${isPeriodAbsent
-                                  ? "bg-red-600 text-white shadow-xs font-black ring-2 ring-red-400"
-                                  : "bg-background-secondary text-foreground-muted hover:bg-secondary hover:text-foreground border-2 border-border"
-                                  }`}
-                                title={`Period ${pIdx + 1}: ${isPeriodAbsent
-                                  ? "Absent (needs sub)"
-                                  : "Present (available)"
-                                  }`}
+                                className={`min-w-[42px] h-9 px-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
+                                  isPeriodAbsent
+                                    ? "bg-red-600 text-white shadow-xs font-black ring-2 ring-red-400"
+                                    : "bg-background-secondary text-foreground-muted hover:bg-secondary hover:text-foreground border-2 border-border"
+                                }`}
+                                title={`Period ${pIdx + 1}: ${
+                                  isPeriodAbsent
+                                    ? "Absent (needs sub)"
+                                    : "Present (available)"
+                                }`}
                               >
                                 P{pIdx + 1}
                               </button>
@@ -1233,7 +1282,8 @@ export function SubstitutionManager({
               </div>
             ) : (
               <p className="text-sm sm:text-base text-foreground-muted font-medium italic">
-                No absent teachers selected. Click any faculty member below to mark them absent.
+                No absent teachers selected. Click any faculty member below to
+                mark them absent.
               </p>
             )}
 
@@ -1245,13 +1295,16 @@ export function SubstitutionManager({
                     key={t.code}
                     type="button"
                     onClick={() => handleToggleAbsent(t.code)}
-                    className={`px-3.5 py-2 text-sm sm:text-base rounded-xl border-2 transition-all cursor-pointer flex items-center gap-2 font-medium ${isAbsent
-                      ? "bg-red-600 text-white border-red-700 font-black shadow-md scale-[1.02]"
-                      : "bg-background-secondary text-foreground hover:bg-secondary border-border hover:border-border-strong"
-                      }`}
+                    className={`px-3.5 py-2 text-sm sm:text-base rounded-xl border-2 transition-all cursor-pointer flex items-center gap-2 font-medium ${
+                      isAbsent
+                        ? "bg-red-600 text-white border-red-700 font-black shadow-md scale-[1.02]"
+                        : "bg-background-secondary text-foreground hover:bg-secondary border-border hover:border-border-strong"
+                    }`}
                     title={`${t.code} • ${t.subject || t.dept}`}
                   >
-                    <span className="font-mono font-black text-sm sm:text-base">{t.code}</span>
+                    <span className="font-mono font-black text-sm sm:text-base">
+                      {t.code}
+                    </span>
                     <span className="text-xs opacity-80 font-bold">
                       ({t.subject || t.dept})
                     </span>
@@ -1322,7 +1375,9 @@ export function SubstitutionManager({
                 {activeAutoPoolCodes.length > 0 && (
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border-2 border-emerald-500/30 px-3.5 py-2 rounded-2xl shadow-xs animate-in fade-in">
                     <Check className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>Auto-selected for pool: {activeAutoPoolCodes.join(", ")}</span>
+                    <span>
+                      Auto-selected for pool: {activeAutoPoolCodes.join(", ")}
+                    </span>
                   </div>
                 )}
 
@@ -1339,10 +1394,11 @@ export function SubstitutionManager({
                       key={t.code}
                       type="button"
                       onClick={() => handleToggleReplacementPool(t.code)}
-                      className={`px-3.5 py-2 text-xs sm:text-sm rounded-xl border-2 transition-all cursor-pointer font-bold ${isInPool
-                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                        : "bg-background-secondary text-foreground-muted hover:text-foreground border-border"
-                        }`}
+                      className={`px-3.5 py-2 text-xs sm:text-sm rounded-xl border-2 transition-all cursor-pointer font-bold ${
+                        isInPool
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-background-secondary text-foreground-muted hover:text-foreground border-border"
+                      }`}
                       title={`${t.code} • ${t.subject || t.dept}`}
                     >
                       <span className="font-mono font-black">{t.code}</span>
@@ -1451,487 +1507,494 @@ export function SubstitutionManager({
 
               {printViewMode === "table" ? (
                 <div className="overflow-x-auto">
-                <table
-                  className="w-full text-center border-collapse"
-                  style={{
-                    border: "1.5px solid #000000",
-                    fontFamily: "'Times New Roman', Times, serif",
-                  }}
-                >
-                  <thead>
-                    <tr
-                      style={{ backgroundColor: "#8DB3E2", color: "#000000" }}
-                    >
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold w-10"
-                        style={{ border: "1px solid #000000" }}
+                  <table
+                    className="w-full text-center border-collapse"
+                    style={{
+                      border: "1.5px solid #000000",
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  >
+                    <thead>
+                      <tr
+                        style={{ backgroundColor: "#8DB3E2", color: "#000000" }}
                       >
-                        SL
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold w-24"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Period &amp; Time
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold w-24"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Class &amp; Sec
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold w-28"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Subject
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Absent Teacher
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Substitute Teacher
-                      </th>
-                      <th
-                        className="p-1.5 text-center text-[12px] font-bold w-32"
-                        style={{ border: "1px solid #000000" }}
-                      >
-                        Teacher Signature
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {printableReplacements.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={9}
-                          className="p-6 text-center text-[13px] text-zinc-500 italic"
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold w-10"
                           style={{ border: "1px solid #000000" }}
                         >
-                          No substitutions scheduled for {selectedDay}.
-                        </td>
+                          SL
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold w-24"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Period &amp; Time
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold w-24"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Class &amp; Sec
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold w-28"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Subject
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Absent Teacher
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Substitute Teacher
+                        </th>
+                        <th
+                          className="p-1.5 text-center text-[12px] font-bold w-32"
+                          style={{ border: "1px solid #000000" }}
+                        >
+                          Teacher Signature
+                        </th>
                       </tr>
-                    ) : (
-                      printableReplacements.map((sub, idx) => {
-                        const origTeacher = teacherDir[sub.originalTeacherCode];
-                        const subTeacher =
-                          teacherDir[sub.substituteTeacherCode];
-                        const periodNumber = sub.periodIndex + 1;
-                        const periodLabel =
-                          periodNumber === 1
-                            ? "1st"
-                            : periodNumber === 2
-                              ? "2nd"
-                              : periodNumber === 3
-                                ? "3rd"
-                                : `${periodNumber}th`;
-                        const periodTime = getPeriodTime(periodNumber, "");
-
-                        return (
-                          <tr
-                            key={`${sub.sectionId}_${sub.periodIndex}`}
-                            onClick={() =>
-                              handleOpenManualModal(
-                                sub.sectionId,
-                                sub.periodIndex,
-                              )
-                            }
-                            className="h-10 cursor-pointer hover:bg-purple-50/60 transition-colors"
-                            style={{
-                              backgroundColor:
-                                idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB",
-                            }}
-                            title="Click to edit or remove replacement"
+                    </thead>
+                    <tbody>
+                      {printableReplacements.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="p-6 text-center text-[13px] text-zinc-500 italic"
+                            style={{ border: "1px solid #000000" }}
                           >
-                            <td
-                              className="p-1.5 text-center text-[12px] font-bold"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              {idx + 1}
-                            </td>
-                            <td
-                              className="p-1.5 text-center"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <div className="font-bold text-[12px]">
-                                {periodLabel}
-                              </div>
-                              <div className="text-[10px] text-zinc-600 leading-none mt-0.5">
-                                {periodTime}
-                              </div>
-                            </td>
-                            <td
-                              className="p-1.5 text-center"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <div className="font-bold text-[13px] text-black">
-                                {sub.sectionId}
-                              </div>
-                              {sub.className && (
-                                <div className="text-[10px] text-zinc-600">
-                                  {sub.className}
-                                </div>
-                              )}
-                            </td>
-                            <td
-                              className="p-1.5 text-center font-semibold text-[12px]"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <div className="font-bold text-[12px] text-black">
-                                {sub.subject}
-                              </div>
-                              {sub.originalSubject &&
-                                sub.originalSubject !== sub.subject && (
-                                  <div className="text-[9px] text-zinc-500 line-through">
-                                    was {sub.originalSubject}
-                                  </div>
-                                )}
-                            </td>
-                            <td
-                              className="p-1.5 text-center"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <span className="font-mono font-bold text-red-600 text-[13px]">
-                                {sub.originalTeacherCode}
-                              </span>
-                              {origTeacher && (
-                                <div className="text-[10px] text-zinc-600">
-                                  {origTeacher.subject || origTeacher.dept}
-                                </div>
-                              )}
-                            </td>
-                            <td
-                              className="p-1.5 text-center"
-                              style={{
-                                border: "1px solid #000000",
-                                backgroundColor: "#F3E8FF",
-                              }}
-                            >
-                              <span className="font-mono font-bold text-purple-700 text-[13px]">
-                                {sub.substituteTeacherCode}
-                              </span>
-                              {subTeacher && (
-                                <div className="text-[10px] text-purple-900 font-medium">
-                                  {subTeacher.subject || subTeacher.dept}
-                                </div>
-                              )}
-                            </td>
-                            <td
-                              className="p-1.5 text-center"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <div className="w-24 h-5 border-b border-dotted border-zinc-400 mx-auto" />
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table
-                  className="w-full text-center border-collapse"
-                  style={{
-                    border: "1.5px solid #000000",
-                    fontFamily: "'Times New Roman', Times, serif",
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th
-                        className="p-1.5 text-center w-24 font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#FFFF00",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">Class &amp; Sec</div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">1st</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(1, "7.30-8.10")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">2nd</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(2, "8.10-8.45")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">3rd</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(3, "8.45-9.20")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">4th</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(4, "9.20-9.55")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center w-16 text-[12px] font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div>Break</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          ({getPeriodTime(0, "9.55-10.25")})
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">5th</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(5, "10.25-11.00")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">6th</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(6, "11.00-11.35")}
-                        </div>
-                      </th>
-                      <th
-                        className="p-1 text-center font-bold"
-                        style={{
-                          border: "1px solid #000000",
-                          backgroundColor: "#8DB3E2",
-                          color: "#000000",
-                        }}
-                      >
-                        <div className="text-[13px]">7th</div>
-                        <div className="text-[10px] font-normal leading-none mt-0.5">
-                          {getPeriodTime(7, "11.35-12.10")}
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentDayRoutine.sections.map((sec, rowIdx) => {
-                      const isClosed = !sec.isActive;
+                            No substitutions scheduled for {selectedDay}.
+                          </td>
+                        </tr>
+                      ) : (
+                        printableReplacements.map((sub, idx) => {
+                          const origTeacher =
+                            teacherDir[sub.originalTeacherCode];
+                          const subTeacher =
+                            teacherDir[sub.substituteTeacherCode];
+                          const periodNumber = sub.periodIndex + 1;
+                          const periodLabel =
+                            periodNumber === 1
+                              ? "1st"
+                              : periodNumber === 2
+                                ? "2nd"
+                                : periodNumber === 3
+                                  ? "3rd"
+                                  : `${periodNumber}th`;
+                          const periodTime = getPeriodTime(periodNumber, "");
 
-                      const renderGridCell = (pIdx: number) => {
-                        if (isClosed) {
                           return (
-                            <td
-                              key={pIdx}
-                              className="p-1.5 text-center text-rose-700 bg-rose-50"
-                              style={{ border: "1px solid #000000" }}
-                            >
-                              <div className="text-[10px] font-bold uppercase tracking-wide">
-                                Closed
-                              </div>
-                              {sec.statusReason && (
-                                <div className="text-[9px] text-rose-600 font-medium truncate max-w-[85px] mx-auto">
-                                  {sec.statusReason}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        }
-
-                        const subData = substitutedMap.get(
-                          `${sec.sectionId}_${pIdx}`,
-                        );
-                        if (subData) {
-                          return (
-                            <td
-                              key={pIdx}
-                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
-                              className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-purple-400 hover:z-10 relative transition-all"
+                            <tr
+                              key={`${sub.sectionId}_${sub.periodIndex}`}
+                              onClick={() =>
+                                handleOpenManualModal(
+                                  sub.sectionId,
+                                  sub.periodIndex,
+                                )
+                              }
+                              className="h-10 cursor-pointer hover:bg-purple-50/60 transition-colors"
                               style={{
-                                border: "1px solid #000000",
-                                backgroundColor: "#F3E8FF",
+                                backgroundColor:
+                                  idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB",
                               }}
                               title="Click to edit or remove replacement"
                             >
-                              <div className="space-y-0.5">
-                                <div className="font-bold text-[12px] text-black leading-tight">
-                                  {subData.subject}
+                              <td
+                                className="p-1.5 text-center text-[12px] font-bold"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                {idx + 1}
+                              </td>
+                              <td
+                                className="p-1.5 text-center"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <div className="font-bold text-[12px]">
+                                  {periodLabel}
                                 </div>
-                                {subData.originalSubject &&
-                                  subData.originalSubject !==
-                                    subData.subject && (
-                                    <div className="text-[8px] text-zinc-500 line-through">
-                                      was {subData.originalSubject}
+                                <div className="text-[10px] text-zinc-600 leading-none mt-0.5">
+                                  {periodTime}
+                                </div>
+                              </td>
+                              <td
+                                className="p-1.5 text-center"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <div className="font-bold text-[13px] text-black">
+                                  {sub.sectionId}
+                                </div>
+                                {sub.className && (
+                                  <div className="text-[10px] text-zinc-600">
+                                    {sub.className}
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="p-1.5 text-center font-semibold text-[12px]"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <div className="font-bold text-[12px] text-black">
+                                  {sub.subject}
+                                </div>
+                                {sub.originalSubject &&
+                                  sub.originalSubject !== sub.subject && (
+                                    <div className="text-[9px] text-zinc-500 line-through">
+                                      was {sub.originalSubject}
                                     </div>
                                   )}
-                                <div className="flex items-center justify-center gap-1">
-                                  <span className="font-mono font-bold text-purple-700 text-[13px]">
-                                    {subData.substituteTeacherCode}
-                                  </span>
-                                  <span className="text-[9px] text-zinc-600">
-                                    (for {subData.originalTeacherCode})
+                              </td>
+                              <td
+                                className="p-1.5 text-center"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <span className="font-mono font-bold text-red-600 text-[13px]">
+                                  {sub.originalTeacherCode}
+                                </span>
+                                {origTeacher && (
+                                  <div className="text-[10px] text-zinc-600">
+                                    {origTeacher.subject || origTeacher.dept}
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="p-1.5 text-center"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#F3E8FF",
+                                }}
+                              >
+                                <span className="font-mono font-bold text-purple-700 text-[13px]">
+                                  {sub.substituteTeacherCode}
+                                </span>
+                                {subTeacher && (
+                                  <div className="text-[10px] text-purple-900 font-medium">
+                                    {subTeacher.subject || subTeacher.dept}
+                                  </div>
+                                )}
+                              </td>
+                              <td
+                                className="p-1.5 text-center"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <div className="w-24 h-5 border-b border-dotted border-zinc-400 mx-auto" />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table
+                    className="w-full text-center border-collapse"
+                    style={{
+                      border: "1.5px solid #000000",
+                      fontFamily: "'Times New Roman', Times, serif",
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          className="p-1.5 text-center w-24 font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#FFFF00",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">Class &amp; Sec</div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">1st</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(1, "7.30-8.10")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">2nd</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(2, "8.10-8.45")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">3rd</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(3, "8.45-9.20")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">4th</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(4, "9.20-9.55")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center w-16 text-[12px] font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div>Break</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            ({getPeriodTime(0, "9.55-10.25")})
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">5th</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(5, "10.25-11.00")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">6th</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(6, "11.00-11.35")}
+                          </div>
+                        </th>
+                        <th
+                          className="p-1 text-center font-bold"
+                          style={{
+                            border: "1px solid #000000",
+                            backgroundColor: "#8DB3E2",
+                            color: "#000000",
+                          }}
+                        >
+                          <div className="text-[13px]">7th</div>
+                          <div className="text-[10px] font-normal leading-none mt-0.5">
+                            {getPeriodTime(7, "11.35-12.10")}
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentDayRoutine.sections.map((sec, rowIdx) => {
+                        const isClosed = !sec.isActive;
+
+                        const renderGridCell = (pIdx: number) => {
+                          if (isClosed) {
+                            return (
+                              <td
+                                key={pIdx}
+                                className="p-1.5 text-center text-rose-700 bg-rose-50"
+                                style={{ border: "1px solid #000000" }}
+                              >
+                                <div className="text-[10px] font-bold uppercase tracking-wide">
+                                  Closed
+                                </div>
+                                {sec.statusReason && (
+                                  <div className="text-[9px] text-rose-600 font-medium truncate max-w-[85px] mx-auto">
+                                    {sec.statusReason}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          }
+
+                          const subData = substitutedMap.get(
+                            `${sec.sectionId}_${pIdx}`,
+                          );
+                          if (subData) {
+                            return (
+                              <td
+                                key={pIdx}
+                                onClick={() =>
+                                  handleOpenManualModal(sec.sectionId, pIdx)
+                                }
+                                className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-purple-400 hover:z-10 relative transition-all"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#F3E8FF",
+                                }}
+                                title="Click to edit or remove replacement"
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-[12px] text-black leading-tight">
+                                    {subData.subject}
+                                  </div>
+                                  {subData.originalSubject &&
+                                    subData.originalSubject !==
+                                      subData.subject && (
+                                      <div className="text-[8px] text-zinc-500 line-through">
+                                        was {subData.originalSubject}
+                                      </div>
+                                    )}
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span className="font-mono font-bold text-purple-700 text-[13px]">
+                                      {subData.substituteTeacherCode}
+                                    </span>
+                                    <span className="text-[9px] text-zinc-600">
+                                      (for {subData.originalTeacherCode})
+                                    </span>
+                                  </div>
+                                  <span className="inline-block px-1 text-[8px] bg-purple-700 text-white font-bold rounded">
+                                    SUB
                                   </span>
                                 </div>
-                                <span className="inline-block px-1 text-[8px] bg-purple-700 text-white font-bold rounded">
-                                  SUB
-                                </span>
-                              </div>
-                            </td>
-                          );
-                        }
+                              </td>
+                            );
+                          }
 
-                        const cell = sec.periods[pIdx];
-                        if (!cell) {
+                          const cell = sec.periods[pIdx];
+                          if (!cell) {
+                            return (
+                              <td
+                                key={pIdx}
+                                onClick={() =>
+                                  handleOpenManualModal(sec.sectionId, pIdx)
+                                }
+                                className="p-1.5 text-center text-zinc-300 text-[11px] cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#FAFAFA",
+                                }}
+                                title="Click to assign replacement"
+                              >
+                                -
+                              </td>
+                            );
+                          }
+
                           return (
                             <td
                               key={pIdx}
-                              onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
-                              className="p-1.5 text-center text-zinc-300 text-[11px] cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
+                              onClick={() =>
+                                handleOpenManualModal(sec.sectionId, pIdx)
+                              }
+                              className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
                               style={{
                                 border: "1px solid #000000",
-                                backgroundColor: "#FAFAFA",
+                                backgroundColor: "#FFFFFF",
                               }}
-                              title="Click to assign replacement"
+                              title="Click to assign or edit replacement"
                             >
-                              -
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-[12px] text-black leading-tight">
+                                  {cell.subject}
+                                </div>
+                                <div className="font-mono font-bold text-[13px] text-zinc-800">
+                                  {cell.teacherCode}
+                                </div>
+                              </div>
                             </td>
                           );
-                        }
+                        };
 
                         return (
-                          <td
-                            key={pIdx}
-                            onClick={() => handleOpenManualModal(sec.sectionId, pIdx)}
-                            className="p-1 text-center cursor-pointer hover:ring-2 hover:ring-primary/40 hover:z-10 relative transition-all"
-                            style={{
-                              border: "1px solid #000000",
-                              backgroundColor: "#FFFFFF",
-                            }}
-                            title="Click to assign or edit replacement"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="font-bold text-[12px] text-black leading-tight">
-                                {cell.subject}
-                              </div>
-                              <div className="font-mono font-bold text-[13px] text-zinc-800">
-                                {cell.teacherCode}
-                              </div>
-                            </div>
-                          </td>
-                        );
-                      };
-
-                      return (
-                        <tr key={sec.sectionId} className="h-11">
-                          <td
-                            className="p-1 text-center font-bold text-[12px]"
-                            style={{
-                              border: "1px solid #000000",
-                              backgroundColor: "#FFFF00",
-                            }}
-                          >
-                            {sec.sectionId}
-                          </td>
-                          {renderGridCell(0)}
-                          {renderGridCell(1)}
-                          {renderGridCell(2)}
-                          {renderGridCell(3)}
-
-                          {rowIdx === 0 && (
+                          <tr key={sec.sectionId} className="h-11">
                             <td
-                              rowSpan={currentDayRoutine.sections.length}
-                              className="text-center font-bold text-[12px] tracking-wider align-middle"
+                              className="p-1 text-center font-bold text-[12px]"
                               style={{
                                 border: "1px solid #000000",
-                                backgroundColor: "#FFFFCC",
-                                writingMode: "vertical-rl",
-                                transform: "rotate(180deg)",
+                                backgroundColor: "#FFFF00",
                               }}
                             >
-                              BREAK / TIFFIN
+                              {sec.sectionId}
                             </td>
-                          )}
+                            {renderGridCell(0)}
+                            {renderGridCell(1)}
+                            {renderGridCell(2)}
+                            {renderGridCell(3)}
 
-                          {renderGridCell(4)}
-                          {renderGridCell(5)}
-                          {renderGridCell(6)}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            {rowIdx === 0 && (
+                              <td
+                                rowSpan={currentDayRoutine.sections.length}
+                                className="text-center font-bold text-[12px] tracking-wider align-middle"
+                                style={{
+                                  border: "1px solid #000000",
+                                  backgroundColor: "#FFFFCC",
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                }}
+                              >
+                                BREAK / TIFFIN
+                              </td>
+                            )}
+
+                            {renderGridCell(4)}
+                            {renderGridCell(5)}
+                            {renderGridCell(6)}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="routine-signature-footer mt-auto pt-8 pb-2 print:pt-4 print:pb-1 flex items-center justify-between text-[11px] font-bold text-black px-4">
+              <div className="text-center">
+                <div className="w-36 border-b border-black mb-1 mx-auto" />
+                <div>Sign of OIC Routine Comm.</div>
               </div>
-            )}
-          </div>
+              <div className="text-center">
+                <div className="w-40 border-b border-black mb-1 mx-auto" />
+                <div>Sign of Chairman Routine Comm.</div>
+              </div>
+              <div className="text-center">
+                <div className="w-36 border-b border-black mb-1 mx-auto" />
+                <div>Sign of VP (EMMS)</div>
+              </div>
+            </div>
 
-          <div className="routine-signature-footer mt-auto pt-8 pb-2 print:pt-4 print:pb-1 flex items-center justify-between text-[11px] font-bold text-black px-4">
-            <div className="text-center">
-              <div className="w-36 border-b border-black mb-1 mx-auto" />
-              <div>Sign of OIC Routine Comm.</div>
+            <div className="text-center text-[10px] text-zinc-500 pt-2 border-t border-zinc-200 mt-2">
+              RAJUK UTTARA MODEL COLLEGE • ROUTINE AUTOMATION SYSTEM
             </div>
-            <div className="text-center">
-              <div className="w-40 border-b border-black mb-1 mx-auto" />
-              <div>Sign of Chairman Routine Comm.</div>
-            </div>
-            <div className="text-center">
-              <div className="w-36 border-b border-black mb-1 mx-auto" />
-              <div>Sign of VP (EMMS)</div>
-            </div>
-          </div>
-
-          <div className="text-center text-[10px] text-zinc-500 pt-2 border-t border-zinc-200 mt-2">
-            RAJUK UTTARA MODEL COLLEGE • ROUTINE AUTOMATION SYSTEM
           </div>
         </div>
-      </div>
 
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-card border-2 border-border shadow-xs">
@@ -1939,11 +2002,13 @@ export function SubstitutionManager({
               <h3 className="font-black text-lg sm:text-xl text-foreground flex items-center gap-2.5">
                 <Briefcase className="w-5 h-5 text-primary" />
                 <span>
-                  Calculated Assignment Plan ({requirements.length} periods need substitution)
+                  Calculated Assignment Plan ({requirements.length} periods need
+                  substitution)
                 </span>
               </h3>
               <p className="text-xs sm:text-sm text-foreground-muted mt-0.5 font-medium">
-                Ranked by class experience, subject/dept match, and non-overloaded daily workloads.
+                Ranked by class experience, subject/dept match, and
+                non-overloaded daily workloads.
               </p>
             </div>
 
@@ -1969,8 +2034,8 @@ export function SubstitutionManager({
                 {absentTeacherCodes.length === 0
                   ? "Select one or more absent teachers above to compute required substitutions."
                   : `The selected teacher(s) (${absentTeacherCodes.join(
-                    ", ",
-                  )}) have no classes requiring substitution on ${selectedDay}.`}
+                      ", ",
+                    )}) have no classes requiring substitution on ${selectedDay}.`}
               </p>
             </div>
           ) : (
@@ -1982,14 +2047,15 @@ export function SubstitutionManager({
                 const selectedCandidate = req.candidates.find(
                   (c) => c.teacher.code === currentAssignedCode,
                 );
-                const isCoTeachingPartial = req.isMultiTeacher && !req.isAllAbsent;
+                const isCoTeachingPartial =
+                  req.isMultiTeacher && !req.isAllAbsent;
                 const suggestedSubSubject = isCoTeachingPartial
                   ? req.originalSubject || req.subject
                   : selectedCandidate?.suggestedSubject ||
-                  selectedCandidate?.teacher.subject ||
-                  selectedCandidate?.teacher.dept ||
-                  req.originalSubject ||
-                  req.subject;
+                    selectedCandidate?.teacher.subject ||
+                    selectedCandidate?.teacher.dept ||
+                    req.originalSubject ||
+                    req.subject;
                 const effectiveSubject =
                   manualSubjects[req.id] !== undefined
                     ? manualSubjects[req.id]
@@ -2026,7 +2092,9 @@ export function SubstitutionManager({
                       {req.isMultiTeacher && !req.isAllAbsent && (
                         <div className="flex items-center gap-1.5 pt-0.5">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/30 text-xs">
-                            Co-teaching ({req.allOriginalTeacherCodes?.join("/")}) • In class: {req.coTeachersPresent?.join(", ")}
+                            Co-teaching (
+                            {req.allOriginalTeacherCodes?.join("/")}) • In
+                            class: {req.coTeachersPresent?.join(", ")}
                           </span>
                         </div>
                       )}
@@ -2034,7 +2102,8 @@ export function SubstitutionManager({
                       {req.isMultiTeacher && req.isAllAbsent && (
                         <div className="flex items-center gap-1.5 pt-0.5">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30 text-xs">
-                            All Co-Teachers Absent ({req.allOriginalTeacherCodes?.join("/")})
+                            All Co-Teachers Absent (
+                            {req.allOriginalTeacherCodes?.join("/")})
                           </span>
                         </div>
                       )}
@@ -2062,21 +2131,23 @@ export function SubstitutionManager({
                             </span>
 
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${selectedCandidate.takesThisClass
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
-                                : selectedCandidate.isSameDept
-                                  ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30"
-                                  : "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30"
-                                }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                selectedCandidate.takesThisClass
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                                  : selectedCandidate.isSameDept
+                                    ? "bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30"
+                                    : "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30"
+                              }`}
                             >
                               {selectedCandidate.matchReasons[0] || "Available"}
                             </span>
 
                             <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${selectedCandidate.isOverloaded
-                                ? "bg-red-500/15 text-red-600"
-                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                                }`}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                selectedCandidate.isOverloaded
+                                  ? "bg-red-500/15 text-red-600"
+                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+                              }`}
                             >
                               Daily Load: {selectedCandidate.currentDayLoad} →{" "}
                               {selectedCandidate.projectedDayLoad ||
@@ -2094,8 +2165,8 @@ export function SubstitutionManager({
                         )}
                       </div>
 
-                      {selectedCandidate && (
-                        isCoTeachingPartial ? (
+                      {selectedCandidate &&
+                        (isCoTeachingPartial ? (
                           <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm">
                             <span className="text-foreground-muted font-bold">
                               Subject:
@@ -2132,8 +2203,7 @@ export function SubstitutionManager({
                               title="Subject taught by replacement teacher"
                             />
                           </div>
-                        )
-                      )}
+                        ))}
 
                       {selectedCandidate &&
                         selectedCandidate.matchReasons.length > 1 && (
@@ -2196,8 +2266,9 @@ export function SubstitutionManager({
                               key={cand.teacher.code}
                               value={cand.teacher.code}
                             >
-                              {cand.teacher.code} ({cand.teacher.subject || cand.teacher.dept}) • Load:{" "}
-                              {cand.currentDayLoad}
+                              {cand.teacher.code} (
+                              {cand.teacher.subject || cand.teacher.dept}) •
+                              Load: {cand.currentDayLoad}
                             </option>
                           ))}
                         </select>
@@ -2235,7 +2306,9 @@ export function SubstitutionManager({
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 text-sm sm:text-base font-black rounded-2xl bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg hover:shadow-xl transition-all cursor-pointer whitespace-nowrap active:scale-98"
                 >
                   <Table className="w-5 h-5" />
-                  <span>Review & Apply Duty Roster ({requirements.length} Classes)</span>
+                  <span>
+                    Review & Apply Duty Roster ({requirements.length} Classes)
+                  </span>
                 </button>
               </div>
             </div>
@@ -2261,7 +2334,8 @@ export function SubstitutionManager({
                       Confirm Duty Roster Application
                     </h3>
                     <p className="text-xs sm:text-sm text-foreground-muted font-medium mt-0.5">
-                      Day: <strong>{selectedDay}</strong> • Review all teacher replacements before committing changes to the schedule.
+                      Day: <strong>{selectedDay}</strong> • Review all teacher
+                      replacements before committing changes to the schedule.
                     </p>
                   </div>
                 </div>
@@ -2294,7 +2368,10 @@ export function SubstitutionManager({
                       Assigned
                     </div>
                     <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      {plannedRoster.filter((r) => r.assignedTeacherCode).length}
+                      {
+                        plannedRoster.filter((r) => r.assignedTeacherCode)
+                          .length
+                      }
                     </div>
                   </div>
 
@@ -2322,7 +2399,8 @@ export function SubstitutionManager({
                   <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-800 dark:text-amber-300 text-sm font-bold flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
                     <span>
-                      Notice: Some periods have no free teacher available and will not be substituted.
+                      Notice: Some periods have no free teacher available and
+                      will not be substituted.
                     </span>
                   </div>
                 )}
@@ -2364,7 +2442,8 @@ export function SubstitutionManager({
                               </div>
                             </td>
                             <td className="p-3">
-                              {item.req.isMultiTeacher && !item.req.isAllAbsent ? (
+                              {item.req.isMultiTeacher &&
+                              !item.req.isAllAbsent ? (
                                 <div>
                                   <div className="font-mono font-black text-red-600 dark:text-red-400 text-sm sm:text-base flex items-center gap-1.5 flex-wrap">
                                     <span>{item.req.originalTeacher.code}</span>
@@ -2373,15 +2452,20 @@ export function SubstitutionManager({
                                     </span>
                                   </div>
                                   <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                    {item.req.originalSubject || item.req.subject} (Unchanged)
+                                    {item.req.originalSubject ||
+                                      item.req.subject}{" "}
+                                    (Unchanged)
                                   </div>
-                                  {item.req.coTeachersPresent && item.req.coTeachersPresent.length > 0 && (
-                                    <div className="text-[11px] text-foreground-muted font-semibold">
-                                      In class: {item.req.coTeachersPresent.join(", ")}
-                                    </div>
-                                  )}
+                                  {item.req.coTeachersPresent &&
+                                    item.req.coTeachersPresent.length > 0 && (
+                                      <div className="text-[11px] text-foreground-muted font-semibold">
+                                        In class:{" "}
+                                        {item.req.coTeachersPresent.join(", ")}
+                                      </div>
+                                    )}
                                 </div>
-                              ) : item.req.isMultiTeacher && item.req.isAllAbsent ? (
+                              ) : item.req.isMultiTeacher &&
+                                item.req.isAllAbsent ? (
                                 <div>
                                   <div className="font-mono font-black text-red-600 dark:text-red-400 text-sm sm:text-base flex items-center gap-1.5 flex-wrap">
                                     <span>{item.req.originalTeacher.code}</span>
@@ -2390,7 +2474,8 @@ export function SubstitutionManager({
                                     </span>
                                   </div>
                                   <div className="text-xs text-foreground-muted font-semibold line-through">
-                                    {item.req.originalSubject || item.req.subject}
+                                    {item.req.originalSubject ||
+                                      item.req.subject}
                                   </div>
                                 </div>
                               ) : (
@@ -2399,7 +2484,8 @@ export function SubstitutionManager({
                                     {item.req.originalTeacher.code}
                                   </div>
                                   <div className="text-xs text-foreground-muted font-semibold line-through">
-                                    {item.req.originalSubject || item.req.subject}
+                                    {item.req.originalSubject ||
+                                      item.req.subject}
                                   </div>
                                 </div>
                               )}
@@ -2416,7 +2502,8 @@ export function SubstitutionManager({
                                 </div>
                               ) : (
                                 <span className="text-danger font-bold text-xs sm:text-sm flex items-center gap-1">
-                                  <AlertTriangle className="w-3.5 h-3.5" /> Unassigned
+                                  <AlertTriangle className="w-3.5 h-3.5" />{" "}
+                                  Unassigned
                                 </span>
                               )}
                             </td>
@@ -2427,11 +2514,14 @@ export function SubstitutionManager({
                                     {item.matchReason}
                                   </div>
                                   <div className="text-xs text-foreground-muted font-semibold">
-                                    Load: {item.currentDayLoad} → {item.projectedDayLoad} classes
+                                    Load: {item.currentDayLoad} →{" "}
+                                    {item.projectedDayLoad} classes
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-danger font-semibold">No faculty available</span>
+                                <span className="text-danger font-semibold">
+                                  No faculty available
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -2445,7 +2535,8 @@ export function SubstitutionManager({
               {/* Modal Footer Actions */}
               <div className="p-5 sm:p-6 border-t-2 border-border bg-background-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="text-xs sm:text-sm text-foreground-muted font-medium">
-                  Changes will be saved and reflected across all routine schedules and print exports.
+                  Changes will be saved and reflected across all routine
+                  schedules and print exports.
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -2459,7 +2550,10 @@ export function SubstitutionManager({
                   <button
                     type="button"
                     onClick={handleConfirmAndApplyRoster}
-                    disabled={plannedRoster.filter((r) => r.assignedTeacherCode).length === 0}
+                    disabled={
+                      plannedRoster.filter((r) => r.assignedTeacherCode)
+                        .length === 0
+                    }
                     className="px-7 py-3 rounded-2xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 font-black text-sm sm:text-base shadow-lg hover:shadow-xl transition-all cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     <Check className="w-5 h-5" />
@@ -2503,7 +2597,9 @@ export function SubstitutionManager({
                       <span className="px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-mono font-bold text-xs">
                         {sub.sectionId}
                       </span>
-                      <span className="font-bold">Period {sub.periodIndex + 1}</span>
+                      <span className="font-bold">
+                        Period {sub.periodIndex + 1}
+                      </span>
                       <span className="text-purple-600 dark:text-purple-400 font-bold">
                         • {sub.subject}
                       </span>
@@ -2530,10 +2626,7 @@ export function SubstitutionManager({
                     <button
                       type="button"
                       onClick={() =>
-                        handleOpenManualModal(
-                          sub.sectionId,
-                          sub.periodIndex,
-                        )
+                        handleOpenManualModal(sub.sectionId, sub.periodIndex)
                       }
                       className="p-1.5 rounded-xl text-foreground-muted hover:text-primary hover:bg-secondary transition-colors cursor-pointer"
                       title="Edit this substitution"
@@ -2572,10 +2665,13 @@ export function SubstitutionManager({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-foreground">
-                    {manualEditModal.isNew ? "Add Replacement" : "Edit Replacement"}
+                    {manualEditModal.isNew
+                      ? "Add Replacement"
+                      : "Edit Replacement"}
                   </h3>
                   <p className="text-xs text-foreground-muted">
-                    {selectedDay} • {manualEditModal.sectionId} • Period {manualEditModal.periodIndex + 1}
+                    {selectedDay} • {manualEditModal.sectionId} • Period{" "}
+                    {manualEditModal.periodIndex + 1}
                   </p>
                 </div>
               </div>
@@ -2686,19 +2782,23 @@ export function SubstitutionManager({
                   </label>
                   <select
                     value={manualEditModal.substituteTeacherCode}
-                    onChange={(e) => handleModalSubstituteTeacherChange(e.target.value)}
+                    onChange={(e) =>
+                      handleModalSubstituteTeacherChange(e.target.value)
+                    }
                     required
                     className="w-full px-3 py-2 rounded-xl bg-background-secondary border border-border text-foreground outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer font-medium"
                   >
                     <option value="" disabled>
                       Select substitute teacher...
                     </option>
-                    {candidateTeachersForModal.map(({ teacher, load, isOccupied }) => (
-                      <option key={teacher.code} value={teacher.code}>
-                        {teacher.code} - {teacher.subject || teacher.dept} (
-                        {isOccupied ? "Busy" : "Free"} • Load: {load})
-                      </option>
-                    ))}
+                    {candidateTeachersForModal.map(
+                      ({ teacher, load, isOccupied }) => (
+                        <option key={teacher.code} value={teacher.code}>
+                          {teacher.code} - {teacher.subject || teacher.dept} (
+                          {isOccupied ? "Busy" : "Free"} • Load: {load})
+                        </option>
+                      ),
+                    )}
                   </select>
                 </div>
 
@@ -2764,7 +2864,9 @@ export function SubstitutionManager({
                     disabled={!manualEditModal.substituteTeacherCode.trim()}
                     className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 shadow-xs cursor-pointer"
                   >
-                    {manualEditModal.isNew ? "Apply Replacement" : "Save Changes"}
+                    {manualEditModal.isNew
+                      ? "Apply Replacement"
+                      : "Save Changes"}
                   </button>
                 </div>
               </div>

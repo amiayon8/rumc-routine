@@ -5,6 +5,12 @@ import {
   isNonTeachingSubject,
   is11Or12BstdClass,
   isPhysicsChemistryMathBiologyTeacher,
+  isPracticalSubject,
+  cleanPracticalSubject,
+  is9Or10BstdClass,
+  is11Or12Class,
+  formatSubjectForSection,
+  isExcludedSubstituteTeacher,
 } from "./routine-data";
 
 export interface SubstitutionCandidate {
@@ -17,6 +23,9 @@ export interface SubstitutionCandidate {
   projectedDayLoad?: number;
   freeInPeriod: boolean;
   isOverloaded: boolean;
+  consecutiveClassesCount: number;
+  consecutiveNoBreakCount: number;
+  consecutiveWarning?: string;
   score: number;
   matchReasons: string[];
   suggestedSubject: string;
@@ -243,7 +252,16 @@ export function getTeacherSubjectForSection(
                 .map((c) => c.trim())
                 .includes(teacherCode))
           ) {
-            return cell.originalSubject || cell.subject;
+            const candidateSubject = cleanPracticalSubject(
+              cell.originalSubject || cell.subject,
+            );
+            if (candidateSubject && !isNonTeachingSubject(candidateSubject)) {
+              return formatSubjectForSection(
+                candidateSubject,
+                sectionId,
+                className,
+              );
+            }
           }
         }
       }
@@ -268,7 +286,16 @@ export function getTeacherSubjectForSection(
                   .map((c) => c.trim())
                   .includes(teacherCode))
             ) {
-              return cell.originalSubject || cell.subject;
+              const candidateSubject = cleanPracticalSubject(
+                cell.originalSubject || cell.subject,
+              );
+              if (candidateSubject && !isNonTeachingSubject(candidateSubject)) {
+                return formatSubjectForSection(
+                  candidateSubject,
+                  sectionId,
+                  className,
+                );
+              }
             }
           }
         }
@@ -292,7 +319,16 @@ export function getTeacherSubjectForSection(
               .map((c) => c.trim())
               .includes(teacherCode))
         ) {
-          return cell.originalSubject || cell.subject;
+          const candidateSubject = cleanPracticalSubject(
+            cell.originalSubject || cell.subject,
+          );
+          if (candidateSubject && !isNonTeachingSubject(candidateSubject)) {
+            return formatSubjectForSection(
+              candidateSubject,
+              sectionId,
+              className,
+            );
+          }
         }
       }
     }
@@ -303,12 +339,24 @@ export function getTeacherSubjectForSection(
       .split(/[/,]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    const validToken = tokens.find((t) => !isNonTeachingSubject(t));
-    if (validToken) return validToken;
-    if (!isNonTeachingSubject(fallbackSubject)) return fallbackSubject;
+    const validToken = tokens.find((t) => {
+      const cleaned = cleanPracticalSubject(t);
+      return cleaned && !isNonTeachingSubject(cleaned);
+    });
+    if (validToken) {
+      const cleaned = cleanPracticalSubject(validToken);
+      if (cleaned && !isNonTeachingSubject(cleaned)) {
+        return formatSubjectForSection(cleaned, sectionId, className);
+      }
+      return formatSubjectForSection(validToken, sectionId, className);
+    }
+    const cleanedFallback = cleanPracticalSubject(fallbackSubject);
+    if (cleanedFallback && !isNonTeachingSubject(cleanedFallback)) {
+      return formatSubjectForSection(cleanedFallback, sectionId, className);
+    }
   }
 
-  return "Subject";
+  return formatSubjectForSection("Subject", sectionId, className);
 }
 
 export function getMultiTeacherSubstitutionPlan({
@@ -418,6 +466,19 @@ export function getMultiTeacherSubstitutionPlan({
               }
             : null;
           const originalSubject = cell.originalSubject || cell.subject;
+          const formattedOriginalSubject = formatSubjectForSection(
+            originalSubject,
+            sec.sectionId,
+            sec.className,
+            sec.sectionName,
+          );
+          const cleanedSubject = formatSubjectForSection(
+            cleanPracticalSubject(formattedOriginalSubject) ||
+              formattedOriginalSubject,
+            sec.sectionId,
+            sec.className,
+            sec.sectionName,
+          );
 
           rawRequirements.push({
             id: `${sec.sectionId}_p${pIdx}_${singleCode}`,
@@ -427,8 +488,8 @@ export function getMultiTeacherSubstitutionPlan({
             periodIndex: pIdx,
             periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
             periodTime: periodTimes[pIdx] || "",
-            subject: originalSubject,
-            originalSubject,
+            subject: cleanedSubject,
+            originalSubject: formattedOriginalSubject,
             originalTeacher: origTeacher,
             activeSubstituteTeacher: activeSubTeacher,
             isAlreadySubstituted: !!cell.substituteTeacherCode,
@@ -482,6 +543,19 @@ export function getMultiTeacherSubstitutionPlan({
       if (absentSlotIndices.length === 0) return;
 
       const originalSubject = cell.originalSubject || cell.subject;
+      const formattedOriginalSubject = formatSubjectForSection(
+        originalSubject,
+        sec.sectionId,
+        sec.className,
+        sec.sectionName,
+      );
+      const cleanedSubject = formatSubjectForSection(
+        cleanPracticalSubject(formattedOriginalSubject) ||
+          formattedOriginalSubject,
+        sec.sectionId,
+        sec.className,
+        sec.sectionName,
+      );
       const isAllAbsent =
         absentSlotIndices.length === origCodes.length ||
         (currentCodes.length === 1 && absentSlotIndices.length === 1);
@@ -490,7 +564,7 @@ export function getMultiTeacherSubstitutionPlan({
         const origTeacher: TeacherInfo = {
           code: rawTeacherCode,
           dept: "Multiple",
-          subject: originalSubject,
+          subject: cleanedSubject,
         };
         const activeSubTeacher =
           cell.substituteTeacherCode &&
@@ -510,8 +584,8 @@ export function getMultiTeacherSubstitutionPlan({
           periodIndex: pIdx,
           periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
           periodTime: periodTimes[pIdx] || "",
-          subject: originalSubject,
-          originalSubject,
+          subject: cleanedSubject,
+          originalSubject: formattedOriginalSubject,
           originalTeacher: origTeacher,
           activeSubstituteTeacher: activeSubTeacher,
           isAlreadySubstituted:
@@ -533,14 +607,14 @@ export function getMultiTeacherSubstitutionPlan({
           const origTeacher = teachersDirectory[absentCode] || {
             code: absentCode,
             dept: "General",
-            subject: originalSubject,
+            subject: formattedOriginalSubject,
           };
           const activeSubTeacher =
             currSlotCode !== absentCode
               ? teachersDirectory[currSlotCode] || {
                   code: currSlotCode,
                   dept: "General",
-                  subject: originalSubject,
+                  subject: formattedOriginalSubject,
                 }
               : null;
 
@@ -552,8 +626,8 @@ export function getMultiTeacherSubstitutionPlan({
             periodIndex: pIdx,
             periodName: periodNames[pIdx] || `Period ${pIdx + 1}`,
             periodTime: periodTimes[pIdx] || "",
-            subject: originalSubject,
-            originalSubject,
+            subject: cleanedSubject,
+            originalSubject: formattedOriginalSubject,
             originalTeacher: origTeacher,
             activeSubstituteTeacher: activeSubTeacher,
             isAlreadySubstituted: currSlotCode !== absentCode,
@@ -580,6 +654,76 @@ export function getMultiTeacherSubstitutionPlan({
     5: new Set(),
     6: new Set(),
   };
+
+  const teacherScheduledPeriods: Record<string, Set<number>> = {};
+  Object.keys(teachersDirectory).forEach((code) => {
+    teacherScheduledPeriods[code] = new Set<number>();
+  });
+
+  dayRoutine.sections.forEach((sec) => {
+    if (!sec.isActive) return;
+
+    sec.periods.forEach((cell, pIdx) => {
+      if (!cell) return;
+
+      const activeCode = cell.substituteTeacherCode || cell.teacherCode;
+      const codes = activeCode
+        .split(/[/,]/)
+        .map((c) => c.trim())
+        .filter(Boolean);
+
+      codes.forEach((code) => {
+        if (!isTeacherAbsentInPeriod(code, pIdx)) {
+          if (!teacherScheduledPeriods[code]) {
+            teacherScheduledPeriods[code] = new Set<number>();
+          }
+          teacherScheduledPeriods[code].add(pIdx);
+        }
+      });
+    });
+  });
+
+  const calculateConsecutiveStatus = (
+    teacherCode: string,
+    targetPeriod: number,
+  ) => {
+    const prospectivePeriods = new Set(
+      teacherScheduledPeriods[teacherCode] || [],
+    );
+    prospectivePeriods.add(targetPeriod);
+
+    let leftIndex = targetPeriod;
+    while (leftIndex > 0 && prospectivePeriods.has(leftIndex - 1)) {
+      leftIndex--;
+    }
+
+    let rightIndex = targetPeriod;
+    while (rightIndex < 6 && prospectivePeriods.has(rightIndex + 1)) {
+      rightIndex++;
+    }
+
+    const consecutiveClassesCount = rightIndex - leftIndex + 1;
+
+    let leftNoBreak = targetPeriod;
+    const blockStart = targetPeriod <= 3 ? 0 : 4;
+    while (leftNoBreak > blockStart && prospectivePeriods.has(leftNoBreak - 1)) {
+      leftNoBreak--;
+    }
+
+    let rightNoBreak = targetPeriod;
+    const blockEnd = targetPeriod <= 3 ? 3 : 6;
+    while (rightNoBreak < blockEnd && prospectivePeriods.has(rightNoBreak + 1)) {
+      rightNoBreak++;
+    }
+
+    const consecutiveNoBreakCount = rightNoBreak - leftNoBreak + 1;
+
+    return {
+      consecutiveClassesCount,
+      consecutiveNoBreakCount,
+    };
+  };
+
   const evaluateCandidate = (
     cand: TeacherInfo,
     req: (typeof rawRequirements)[0],
@@ -589,6 +733,7 @@ export function getMultiTeacherSubstitutionPlan({
     if (req.isAllAbsent && req.allOriginalTeacherCodes?.includes(cand.code))
       return null;
     if (req.coTeachersPresent?.includes(cand.code)) return null;
+    if (isExcludedSubstituteTeacher(cand.code)) return null;
     if (
       is11Or12BstdClass(req.sectionId, req.className, req.sectionName) &&
       isPhysicsChemistryMathBiologyTeacher(cand)
@@ -608,7 +753,7 @@ export function getMultiTeacherSubstitutionPlan({
     const candSections = teacherSections[cand.code] || new Set();
 
     const subjNorm = req.subject.toLowerCase().trim();
-    const isSameDept =
+    let isSameDept =
       cand.dept.toLowerCase().trim() ===
       req.originalTeacher.dept.toLowerCase().trim();
     const candSubjectTokens = (cand.subject || "")
@@ -617,7 +762,7 @@ export function getMultiTeacherSubstitutionPlan({
       .map((s) => s.trim())
       .filter(Boolean);
 
-    const takesThisSubject =
+    let takesThisSubject =
       candSubjects.has(subjNorm) ||
       candSubjectTokens.some(
         (token) =>
@@ -631,6 +776,73 @@ export function getMultiTeacherSubstitutionPlan({
           subjNorm.includes(expSubj) ||
           expSubj.includes(subjNorm),
       );
+
+    const is9Or10Bstd = is9Or10BstdClass(
+      req.sectionId,
+      req.className,
+      req.sectionName,
+    );
+    const isScienceTarget =
+      subjNorm === "science" ||
+      subjNorm === "sci" ||
+      subjNorm === "g sci" ||
+      subjNorm === "general science";
+
+    if (is9Or10Bstd && isScienceTarget) {
+      const candDeptNorm = cand.dept.toLowerCase().trim();
+      const candIsScienceField =
+        candDeptNorm === "science" ||
+        candDeptNorm === "physics" ||
+        candDeptNorm === "chemistry" ||
+        candDeptNorm === "biology" ||
+        candSubjectTokens.some((t) =>
+          [
+            "science",
+            "physics",
+            "chemistry",
+            "biology",
+            "sci",
+            "phy",
+            "chem",
+            "bio",
+          ].includes(t),
+        );
+      if (candIsScienceField) {
+        takesThisSubject = true;
+        isSameDept = true;
+      }
+    }
+
+    const isMathTarget =
+      subjNorm === "math" ||
+      subjNorm === "mathematics" ||
+      subjNorm === "h.math" ||
+      subjNorm === "higher math";
+
+    if (
+      (is9Or10Bstd || is11Or12Class(req.sectionId, req.className)) &&
+      isMathTarget
+    ) {
+      const candDeptNorm = cand.dept.toLowerCase().trim();
+      const candIsMathField =
+        candDeptNorm === "mathematics" ||
+        candDeptNorm === "technical" ||
+        candSubjectTokens.some((t) =>
+          [
+            "math",
+            "mathematics",
+            "h.math",
+            "higher math",
+            "engineering drw",
+            "engr drw",
+            "drw",
+          ].includes(t),
+        );
+      if (candIsMathField) {
+        takesThisSubject = true;
+        isSameDept = true;
+      }
+    }
 
     const takesExactSection = candSections.has(req.sectionId);
     const takesThisGradeLevel = candClasses.has(req.className);
@@ -733,6 +945,66 @@ export function getMultiTeacherSubstitutionPlan({
       matchReasons.push(`Current load: ${currentLoad} classes`);
     }
 
+    const { consecutiveClassesCount, consecutiveNoBreakCount } =
+      calculateConsecutiveStatus(cand.code, req.periodIndex);
+
+    let consecutiveWarning: string | undefined;
+    if (consecutiveClassesCount === 1) {
+      score += 40;
+      matchReasons.push("No consecutive classes");
+    } else if (consecutiveClassesCount === 2) {
+      if (consecutiveNoBreakCount === 1) {
+        score -= 25;
+        consecutiveWarning = "2 periods (with Tiffin break)";
+        matchReasons.push("2 consecutive periods (with Tiffin break)");
+      } else {
+        score -= 80;
+        consecutiveWarning = "2 consecutive classes";
+        matchReasons.push("2 consecutive classes (back-to-back)");
+      }
+    } else if (consecutiveClassesCount === 3) {
+      if (consecutiveNoBreakCount <= 2) {
+        score -= 140;
+        consecutiveWarning = "3 periods (spans Tiffin break)";
+        matchReasons.push("3 consecutive periods (spans Tiffin break)");
+      } else {
+        score -= 220;
+        consecutiveWarning = "3 consecutive classes";
+        matchReasons.push("3 consecutive classes (no break)");
+      }
+    } else if (consecutiveClassesCount === 4) {
+      if (consecutiveNoBreakCount <= 2) {
+        score -= 280;
+        consecutiveWarning = "4 consecutive periods";
+        matchReasons.push("4 consecutive periods warning");
+      } else {
+        score -= 360;
+        consecutiveWarning = "4 consecutive classes";
+        matchReasons.push("4 back-to-back classes warning");
+      }
+    } else {
+      score -= 500;
+      consecutiveWarning = `${consecutiveClassesCount} consecutive classes`;
+      matchReasons.push(`${consecutiveClassesCount} consecutive classes warning`);
+    }
+
+    const cleanedSuggestedSubject =
+      cleanPracticalSubject(suggestedSubject);
+    const baseFinalSubject =
+      cleanedSuggestedSubject && !isNonTeachingSubject(cleanedSuggestedSubject)
+        ? cleanedSuggestedSubject
+        : cleanPracticalSubject(cand.subject) ||
+          cleanPracticalSubject(cand.dept) ||
+          cleanPracticalSubject(req.subject) ||
+          "Subject";
+
+    const finalSuggestedSubject = formatSubjectForSection(
+      baseFinalSubject,
+      req.sectionId,
+      req.className,
+      req.sectionName,
+    );
+
     return {
       teacher: cand,
       isSameSubject: takesThisSubject,
@@ -743,13 +1015,22 @@ export function getMultiTeacherSubstitutionPlan({
       projectedDayLoad: currentLoad + (isCurrentSub ? 0 : 1),
       freeInPeriod: true,
       isOverloaded,
+      consecutiveClassesCount,
+      consecutiveNoBreakCount,
+      consecutiveWarning,
       score,
       matchReasons,
-      suggestedSubject,
+      suggestedSubject: finalSuggestedSubject,
     };
   };
 
-  const finalRequirements: SubstitutionRequirement[] = [];
+  const assignmentsMap = new Map<
+    string,
+    {
+      bestCandidate: SubstitutionCandidate | null;
+      candidateList: SubstitutionCandidate[];
+    }
+  >();
 
   rawRequirements.sort((a, b) => a.periodIndex - b.periodIndex);
 
@@ -777,7 +1058,78 @@ export function getMultiTeacherSubstitutionPlan({
           (simulatedLoads[bestCandidate.teacher.code] || 0) + 1;
       }
       periodBookings[req.periodIndex]?.add(bestCandidate.teacher.code);
+      if (!teacherScheduledPeriods[bestCandidate.teacher.code]) {
+        teacherScheduledPeriods[bestCandidate.teacher.code] = new Set<number>();
+      }
+      teacherScheduledPeriods[bestCandidate.teacher.code].add(req.periodIndex);
     }
+
+    assignmentsMap.set(req.id, { bestCandidate, candidateList });
+  });
+
+  if (rawRequirements.length > 1) {
+    rawRequirements.forEach((req) => {
+      const currentAssignment = assignmentsMap.get(req.id)?.bestCandidate;
+      if (currentAssignment) {
+        teacherScheduledPeriods[currentAssignment.teacher.code]?.delete(
+          req.periodIndex,
+        );
+        periodBookings[req.periodIndex]?.delete(
+          currentAssignment.teacher.code,
+        );
+        if (
+          !req.isAlreadySubstituted ||
+          req.activeSubstituteTeacher?.code !== currentAssignment.teacher.code
+        ) {
+          simulatedLoads[currentAssignment.teacher.code] = Math.max(
+            0,
+            (simulatedLoads[currentAssignment.teacher.code] || 1) - 1,
+          );
+        }
+      }
+
+      const refreshedCandidates: SubstitutionCandidate[] = [];
+      Object.values(teachersDirectory).forEach((cand) => {
+        const evaluation = evaluateCandidate(cand, req);
+        if (evaluation) {
+          refreshedCandidates.push(evaluation);
+        }
+      });
+
+      refreshedCandidates.sort((a, b) => b.score - a.score);
+      const refinedBest =
+        refreshedCandidates.find((c) => !c.isOverloaded) ||
+        refreshedCandidates[0] ||
+        null;
+
+      if (refinedBest) {
+        if (
+          !req.isAlreadySubstituted ||
+          req.activeSubstituteTeacher?.code !== refinedBest.teacher.code
+        ) {
+          simulatedLoads[refinedBest.teacher.code] =
+            (simulatedLoads[refinedBest.teacher.code] || 0) + 1;
+        }
+        periodBookings[req.periodIndex]?.add(refinedBest.teacher.code);
+        if (!teacherScheduledPeriods[refinedBest.teacher.code]) {
+          teacherScheduledPeriods[refinedBest.teacher.code] = new Set<number>();
+        }
+        teacherScheduledPeriods[refinedBest.teacher.code].add(req.periodIndex);
+      }
+
+      assignmentsMap.set(req.id, {
+        bestCandidate: refinedBest,
+        candidateList: refreshedCandidates,
+      });
+    });
+  }
+
+  const finalRequirements: SubstitutionRequirement[] = [];
+
+  rawRequirements.forEach((req) => {
+    const assignment = assignmentsMap.get(req.id);
+    const candidateList = assignment?.candidateList || [];
+    const bestCandidate = assignment?.bestCandidate || null;
 
     const currentSubCandidate = req.activeSubstituteTeacher
       ? candidateList.find(

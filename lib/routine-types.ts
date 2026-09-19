@@ -252,6 +252,38 @@ export const TEACHER_DIRECTORY: Record<string, TeacherInfo> = {
   ZUR: { code: "ZUR", dept: "Mathematics", subject: "Math" },
 };
 
+export function isPracticalSubject(subject?: string | null): boolean {
+  if (!subject) return false;
+  const normalized = subject.trim().toLowerCase();
+  return (
+    /\b(prac|prac\.|practical|lab|laboratory)\b/i.test(normalized) ||
+    normalized.includes("-prac") ||
+    normalized.includes("/prac") ||
+    normalized.includes("prac/")
+  );
+}
+
+export function cleanPracticalSubject(subject?: string | null): string {
+  if (!subject) return "";
+  let cleaned = subject
+    .replace(/-(?:prac|practical|lab)\b/gi, "")
+    .replace(/\b(?:prac|practical|lab)-/gi, "")
+    .replace(/\b(?:prac|practical|lab)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\/+/g, "/")
+    .replace(/^[\/\s-]+|[\/\s-]+$/g, "")
+    .trim();
+
+  const lower = cleaned.toLowerCase();
+  if (lower === "bio") cleaned = "Biology";
+  else if (lower === "phy") cleaned = "Physics";
+  else if (lower === "chem") cleaned = "Chemistry";
+  else if (lower === "stat") cleaned = "Statistics";
+  else if (lower === "agri") cleaned = "Agriculture";
+
+  return cleaned;
+}
+
 export function isNonTeachingSubject(
   subject?: string | null,
   isExam?: boolean,
@@ -280,6 +312,9 @@ export function isNonTeachingSubject(
   ) {
     return true;
   }
+  if (isPracticalSubject(normalized)) {
+    return true;
+  }
 
   return false;
 }
@@ -305,6 +340,156 @@ export function is11Or12BstdClass(
     return true;
   }
   return false;
+}
+
+export function is9Or10BstdClass(
+  sectionId: string,
+  className?: string,
+  sectionName?: string,
+): boolean {
+  const normalizedId = (sectionId || "").toUpperCase().trim();
+  if (
+    normalizedId === "9BST" ||
+    normalizedId === "9BSTD" ||
+    normalizedId === "10BST" ||
+    normalizedId === "10BSTD" ||
+    normalizedId === "9COMMERCE" ||
+    normalizedId === "10COMMERCE"
+  ) {
+    return true;
+  }
+  const grade = (className || "").toUpperCase().trim();
+  const section = (sectionName || "").toUpperCase().trim();
+  const isGrade9Or10 =
+    grade === "CLASS 9" ||
+    grade === "CLASS 10" ||
+    grade === "9" ||
+    grade === "10" ||
+    normalizedId.startsWith("9") ||
+    normalizedId.startsWith("10");
+
+  const isBstdSection =
+    section === "BST" ||
+    section === "BSTD" ||
+    section === "B.STD" ||
+    section === "BUSINESS STUDIES" ||
+    section === "COMMERCE" ||
+    normalizedId.includes("BST") ||
+    normalizedId.includes("BSTD");
+
+  return isGrade9Or10 && isBstdSection;
+}
+
+export function is11Or12Class(
+  sectionId: string,
+  className?: string,
+): boolean {
+  const normalizedId = (sectionId || "").toUpperCase().trim();
+  if (normalizedId.startsWith("11") || normalizedId.startsWith("12")) {
+    return true;
+  }
+  const grade = (className || "").toUpperCase().trim();
+  return (
+    grade === "CLASS 11" ||
+    grade === "CLASS 12" ||
+    grade === "11" ||
+    grade === "12"
+  );
+}
+
+export function isExcludedSubstituteTeacher(
+  teacherCode?: string | null,
+): boolean {
+  if (!teacherCode) return false;
+  const normalized = teacherCode.trim().toUpperCase();
+  return normalized === "DRD";
+}
+
+export function isTechnicalDrawingTeacher(
+  teacher?: TeacherInfo | null,
+): boolean {
+  if (!teacher) return false;
+  const dept = (teacher.dept || "").toLowerCase().trim();
+  const subject = (teacher.subject || "").toLowerCase().trim();
+  return (
+    dept === "technical" ||
+    /\b(drw|drawing|engineering\s*drw)\b/i.test(subject)
+  );
+}
+
+function deduplicateSubjectTokens(text: string): string {
+  if (!text.includes("/")) return text.trim();
+  const tokens = text
+    .split("/")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const uniqueTokens: string[] = [];
+  for (const token of tokens) {
+    const key = token.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueTokens.push(token);
+    }
+  }
+  return uniqueTokens.join("/");
+}
+
+export function formatSubjectForSection(
+  subject: string,
+  sectionId: string,
+  className?: string,
+  sectionName?: string,
+): string {
+  if (!subject) return subject;
+
+  const is9Or10Bstd = is9Or10BstdClass(sectionId, className, sectionName);
+  const is11Or12 = is11Or12Class(sectionId, className);
+
+  let formatted = subject;
+
+  if (is9Or10Bstd) {
+    if (/^(bio|biology|chem|chemistry|phy|physics)$/i.test(formatted.trim())) {
+      return "Science";
+    }
+
+    if (
+      /^(engr\s*drw|engineering\s*(?:drw|drawing)|engg\s*drw|drw|drawing)$/i.test(
+        formatted.trim(),
+      )
+    ) {
+      return "Math";
+    }
+
+    formatted = formatted
+      .replace(/\b(biology|chemistry|physics)\b/gi, "Science")
+      .replace(/\b(bio|chem|phy)\b/gi, "Science")
+      .replace(
+        /\b(engr\s*drw|engineering\s*(?:drw|drawing)|engg\s*drw|drw|drawing)\b/gi,
+        "Math",
+      );
+
+    return deduplicateSubjectTokens(formatted);
+  }
+
+  if (is11Or12) {
+    if (
+      /^(engr\s*drw|engineering\s*(?:drw|drawing)|engg\s*drw|drw|drawing)$/i.test(
+        formatted.trim(),
+      )
+    ) {
+      return "Math";
+    }
+
+    formatted = formatted.replace(
+      /\b(engr\s*drw|engineering\s*(?:drw|drawing)|engg\s*drw|drw|drawing)\b/gi,
+      "Math",
+    );
+
+    return deduplicateSubjectTokens(formatted);
+  }
+
+  return formatted;
 }
 
 export function isPhysicsChemistryMathBiologyTeacher(

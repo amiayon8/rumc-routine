@@ -90,7 +90,7 @@ export function Navbar({
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full glass-panel border-b border-border/80 transition-colors">
+      <header className="no-print sticky top-0 z-40 w-full glass-panel border-b border-border/80 transition-colors">
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <div className="h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">

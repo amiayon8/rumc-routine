@@ -9,6 +9,8 @@ import {
   TeacherInfo,
   TEACHER_DIRECTORY,
   isNonTeachingSubject,
+  cleanPracticalSubject,
+  formatSubjectForSection,
 } from "./routine-data";
 import {
   fetchRoutineFromSupabase,
@@ -674,27 +676,40 @@ export function useRoutineStore() {
                 }
 
                 const newActiveCode = tokens.join("/");
+                const cleanedOriginalSubject = formatSubjectForSection(
+                  cleanPracticalSubject(originalSubject) || originalSubject,
+                  sec.sectionId,
+                  sec.className,
+                  sec.sectionName,
+                );
                 return {
                   ...cell,
                   originalSubject,
-                  subject: originalSubject,
+                  subject: cleanedOriginalSubject,
                   substituteTeacherCode: newActiveCode,
                   substituteReason: reason || undefined,
-                  substituteSubject: originalSubject,
+                  substituteSubject: cleanedOriginalSubject,
+                  isPractical: false,
                 };
               }
 
-            const subTeacher =
+              const subTeacher =
                 teachers[substituteTeacherCode] ||
                 memoryTeachers[substituteTeacherCode] ||
                 TEACHER_DIRECTORY[substituteTeacherCode];
-              const resolvedSubject =
+              const rawResolvedSubject =
                 newSubject ||
                 (subTeacher?.subject && !isNonTeachingSubject(subTeacher.subject)
                   ? subTeacher.subject
                   : undefined) ||
                 subTeacher?.dept ||
                 originalSubject;
+              const resolvedSubject = formatSubjectForSection(
+                cleanPracticalSubject(rawResolvedSubject) || rawResolvedSubject,
+                sec.sectionId,
+                sec.className,
+                sec.sectionName,
+              );
 
               return {
                 ...(cell || { period: idx + 1 }),
@@ -705,6 +720,7 @@ export function useRoutineStore() {
                 substituteTeacherCode,
                 substituteReason: reason || undefined,
                 substituteSubject: resolvedSubject,
+                isPractical: false,
               };
             });
             return { ...sec, periods: newPeriods };

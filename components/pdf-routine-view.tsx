@@ -12,6 +12,8 @@ import {
   TEACHER_DIRECTORY,
   is11Or12BstdClass,
   isPhysicsChemistryMathBiologyTeacher,
+  formatSubjectForSection,
+  isExcludedSubstituteTeacher,
 } from "../lib/routine-data";
 import { getTeacherSubjectForSection } from "../lib/substitution-engine";
 import { TimingEditorModal } from "./timing-editor-modal";
@@ -251,22 +253,26 @@ export function PdfRoutineView({
               <>
                 <div className="leading-tight">
                   <span className="font-semibold text-black">
-                    {cell.substituteSubject ||
-                      (cell.subject && cell.subject !== cell.originalSubject
-                        ? cell.subject
-                        : getTeacherSubjectForSection(
-                            routineData,
-                            cell.substituteTeacherCode,
-                            sectionId,
-                            className || "",
-                            (teachers || TEACHER_DIRECTORY)[
-                              cell.substituteTeacherCode
-                            ]?.subject ||
+                    {formatSubjectForSection(
+                      cell.substituteSubject ||
+                        (cell.subject && cell.subject !== cell.originalSubject
+                          ? cell.subject
+                          : getTeacherSubjectForSection(
+                              routineData,
+                              cell.substituteTeacherCode,
+                              sectionId,
+                              className || "",
                               (teachers || TEACHER_DIRECTORY)[
                                 cell.substituteTeacherCode
-                              ]?.dept ||
-                              cell.subject,
-                          ))}
+                              ]?.subject ||
+                                (teachers || TEACHER_DIRECTORY)[
+                                  cell.substituteTeacherCode
+                                ]?.dept ||
+                                cell.subject,
+                            )),
+                      sectionId,
+                      className,
+                    )}
                   </span>
                   <span className="text-black font-medium"> - </span>
                   <span className="font-bold text-purple-900">
@@ -279,7 +285,9 @@ export function PdfRoutineView({
               </>
             ) : (
               <div className="leading-tight">
-                <span className="font-semibold text-black">{cell.subject}</span>
+                <span className="font-semibold text-black">
+                  {formatSubjectForSection(cell.subject, sectionId, className)}
+                </span>
                 <span className="text-black font-medium">
                   {" "}
                   - {cell.teacherCode}
@@ -1045,6 +1053,12 @@ export function PdfRoutineView({
                     null,
                   );
                 } else if (subTeacherCode) {
+                  if (isExcludedSubstituteTeacher(subTeacherCode)) {
+                    alert(
+                      "Religion (Hindu) teacher DRD cannot be assigned as a replacement.",
+                    );
+                    return;
+                  }
                   if (
                     is11Or12BstdClass(editingCell.sectionId) &&
                     isPhysicsChemistryMathBiologyTeacher(
@@ -1068,21 +1082,28 @@ export function PdfRoutineView({
                       teacherCode,
                       subTeacherCode,
                       subReason || undefined,
-                      subSubject || subject,
+                      formatSubjectForSection(
+                        subSubject || subject,
+                        editingCell.sectionId,
+                      ),
                     );
                   } else {
+                    const formattedSubSubject = formatSubjectForSection(
+                      subSubject || subject,
+                      editingCell.sectionId,
+                    );
                     onUpdateCell(
                       editingCell.day,
                       editingCell.sectionId,
                       editingCell.periodIndex,
                       {
-                        subject: subSubject || subject,
+                        subject: formattedSubSubject,
                         originalSubject:
                           editingCell.cell?.originalSubject || subject,
                         teacherCode,
                         room: editingCell.cell?.room,
                         substituteTeacherCode: subTeacherCode,
-                        substituteSubject: subSubject || subject,
+                        substituteSubject: formattedSubSubject,
                         substituteReason: subReason || undefined,
                       },
                     );
@@ -1103,7 +1124,10 @@ export function PdfRoutineView({
                     editingCell.sectionId,
                     editingCell.periodIndex,
                     {
-                      subject,
+                      subject: formatSubjectForSection(
+                        subject,
+                        editingCell.sectionId,
+                      ),
                       teacherCode,
                       room: editingCell.cell?.room,
                       substituteTeacherCode: undefined,

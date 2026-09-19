@@ -13,6 +13,9 @@ import {
   isNonTeachingSubject,
   is11Or12BstdClass,
   isPhysicsChemistryMathBiologyTeacher,
+  cleanPracticalSubject,
+  formatSubjectForSection,
+  isExcludedSubstituteTeacher,
 } from "../lib/routine-data";
 import {
   getMultiTeacherSubstitutionPlan,
@@ -451,16 +454,28 @@ export function SubstitutionManager({
         (c) => c.teacher.code === currentAssignedCode,
       );
       const isCoTeachingPartial = req.isMultiTeacher && !req.isAllAbsent;
-      const suggestedSubSubject = isCoTeachingPartial
+      const rawSubSubject = isCoTeachingPartial
         ? req.originalSubject || req.subject
         : selectedCandidate?.suggestedSubject ||
           selectedCandidate?.teacher.subject ||
           selectedCandidate?.teacher.dept ||
           req.originalSubject ||
           req.subject;
+      const suggestedSubSubject = formatSubjectForSection(
+        cleanPracticalSubject(rawSubSubject) || rawSubSubject,
+        req.sectionId,
+        req.className,
+        req.sectionName,
+      );
       const effectiveSubject =
         manualSubjects[req.id] !== undefined
-          ? manualSubjects[req.id]
+          ? formatSubjectForSection(
+              cleanPracticalSubject(manualSubjects[req.id]) ||
+                manualSubjects[req.id],
+              req.sectionId,
+              req.className,
+              req.sectionName,
+            )
           : suggestedSubSubject;
 
       return {
@@ -477,6 +492,11 @@ export function SubstitutionManager({
         projectedDayLoad:
           selectedCandidate?.projectedDayLoad ||
           (selectedCandidate ? selectedCandidate.currentDayLoad + 1 : 0),
+        consecutiveClassesCount:
+          selectedCandidate?.consecutiveClassesCount ?? 1,
+        consecutiveWarning: selectedCandidate?.consecutiveWarning,
+        consecutiveNoBreakCount:
+          selectedCandidate?.consecutiveNoBreakCount ?? 1,
       };
     });
   }, [requirements, manualAssignments, manualSubjects]);
@@ -490,6 +510,8 @@ export function SubstitutionManager({
     let appliedCount = 0;
     plannedRoster.forEach((item) => {
       if (item.assignedTeacherCode) {
+        const cleanedSubSubject =
+          cleanPracticalSubject(item.effectiveSubject) || item.effectiveSubject;
         onApplySubstitution(
           selectedDay,
           item.req.periodIndex,
@@ -497,7 +519,7 @@ export function SubstitutionManager({
           item.req.originalTeacher.code,
           item.assignedTeacherCode,
           undefined,
-          item.effectiveSubject,
+          cleanedSubSubject,
         );
         appliedCount++;
       }
@@ -513,6 +535,8 @@ export function SubstitutionManager({
     assignedCode: string,
     effectiveSubject: string,
   ) => {
+    const cleanedSubSubject =
+      cleanPracticalSubject(effectiveSubject) || effectiveSubject;
     onApplySubstitution(
       selectedDay,
       req.periodIndex,
@@ -520,10 +544,10 @@ export function SubstitutionManager({
       req.originalTeacher.code,
       assignedCode,
       undefined,
-      effectiveSubject,
+      cleanedSubSubject,
     );
     setSuccessNotice(
-      `Assigned substitute ${assignedCode} (${effectiveSubject}) for ${req.sectionId} Period ${req.periodIndex + 1} on ${selectedDay}.`,
+      `Assigned substitute ${assignedCode} (${cleanedSubSubject}) for ${req.sectionId} Period ${req.periodIndex + 1} on ${selectedDay}.`,
     );
   };
 
@@ -539,7 +563,9 @@ export function SubstitutionManager({
   };
 
   const handlePrint = () => {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const printableReplacements = React.useMemo(() => {
@@ -638,13 +664,19 @@ export function SubstitutionManager({
           const cand = req.candidates.find(
             (c) => c.teacher.code === assignedCode,
           );
-          const resolvedSubject =
+          const rawResolvedSubject =
             manualSubjects[req.id] ||
             cand?.suggestedSubject ||
             cand?.teacher.subject ||
             cand?.teacher.dept ||
             req.originalSubject ||
             req.subject;
+          const resolvedSubject = formatSubjectForSection(
+            cleanPracticalSubject(rawResolvedSubject) || rawResolvedSubject,
+            req.sectionId,
+            req.className,
+            req.sectionName,
+          );
 
           map.set(key, {
             sectionId: req.sectionId,
@@ -731,6 +763,7 @@ export function SubstitutionManager({
     return allTeachersList
       .filter((t) => {
         if (t.code === manualEditModal.originalTeacherCode) return false;
+        if (isExcludedSubstituteTeacher(t.code)) return false;
         if (isBstdClass && isPhysicsChemistryMathBiologyTeacher(t)) {
           return false;
         }
@@ -852,7 +885,7 @@ export function SubstitutionManager({
 
   const handleModalSubstituteTeacherChange = (teacherCode: string) => {
     const teacher = teacherDir[teacherCode];
-    const suggestedSubject =
+    const rawSuggestedSubject =
       (teacher?.subject && !isNonTeachingSubject(teacher.subject)
         ? teacher.subject
         : undefined) ||
@@ -860,6 +893,10 @@ export function SubstitutionManager({
       manualEditModal?.originalSubject ||
       manualEditModal?.subject ||
       "";
+    const suggestedSubject = formatSubjectForSection(
+      cleanPracticalSubject(rawSuggestedSubject) || rawSuggestedSubject,
+      manualEditModal?.sectionId || "",
+    );
     setManualEditModal((prev) =>
       prev
         ? {
@@ -877,6 +914,12 @@ export function SubstitutionManager({
       return;
 
     const substituteCode = manualEditModal.substituteTeacherCode.trim();
+    if (isExcludedSubstituteTeacher(substituteCode)) {
+      alert(
+        "Religion (Hindu) teacher DRD cannot be assigned as a replacement.",
+      );
+      return;
+    }
     const substituteTeacher = teacherDir[substituteCode];
     if (
       is11Or12BstdClass(manualEditModal.sectionId) &&
@@ -1430,8 +1473,10 @@ export function SubstitutionManager({
             </div>
           )}
         </div>
+      </div>
 
-        <div className="routine-print-area font-serif mt-8 space-y-6">
+      <div className="routine-print-area font-serif mt-8 space-y-6">
+        <div className="no-print flex items-center justify-between">
           <button
             type="button"
             onClick={handlePrint}
@@ -1440,15 +1485,16 @@ export function SubstitutionManager({
             <Printer className="w-4 h-4" />
             <span>Print Replacements</span>
           </button>
+        </div>
 
-          <div
-            className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 bg-white border border-border shadow-xs text-black transition-colors"
-            style={{
-              fontFamily: "'Times New Roman', Times, serif",
-              color: "#000000",
-              backgroundColor: "#ffffff",
-            }}
-          >
+        <div
+          className="routine-sheet min-h-[297mm] flex flex-col justify-between p-6 sm:p-8 print:p-0 bg-white border border-border shadow-xs text-black transition-colors"
+          style={{
+            fontFamily: "'Times New Roman', Times, serif",
+            color: "#000000",
+            backgroundColor: "#ffffff",
+          }}
+        >
             <div>
               <div className="flex items-center justify-between text-[11px] font-bold tracking-wide pb-1 border-b border-zinc-200">
                 <span style={{ color: "#FF0000" }}>
@@ -2014,7 +2060,8 @@ export function SubstitutionManager({
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="no-print space-y-6">
+          <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-card border-2 border-border shadow-xs">
             <div>
               <h3 className="font-black text-lg sm:text-xl text-foreground flex items-center gap-2.5">
@@ -2067,16 +2114,28 @@ export function SubstitutionManager({
                 );
                 const isCoTeachingPartial =
                   req.isMultiTeacher && !req.isAllAbsent;
-                const suggestedSubSubject = isCoTeachingPartial
+                const rawSubSubject = isCoTeachingPartial
                   ? req.originalSubject || req.subject
                   : selectedCandidate?.suggestedSubject ||
                     selectedCandidate?.teacher.subject ||
                     selectedCandidate?.teacher.dept ||
                     req.originalSubject ||
                     req.subject;
+                const suggestedSubSubject = formatSubjectForSection(
+                  cleanPracticalSubject(rawSubSubject) || rawSubSubject,
+                  req.sectionId,
+                  req.className,
+                  req.sectionName,
+                );
                 const effectiveSubject =
                   manualSubjects[req.id] !== undefined
-                    ? manualSubjects[req.id]
+                    ? formatSubjectForSection(
+                        cleanPracticalSubject(manualSubjects[req.id]) ||
+                          manualSubjects[req.id],
+                        req.sectionId,
+                        req.className,
+                        req.sectionName,
+                      )
                     : suggestedSubSubject;
 
                 return (
@@ -2172,6 +2231,22 @@ export function SubstitutionManager({
                                 selectedCandidate.currentDayLoad + 1}{" "}
                               classes
                             </span>
+
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                selectedCandidate.consecutiveClassesCount <= 1
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                                  : selectedCandidate.consecutiveNoBreakCount >=
+                                      2
+                                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                                    : "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30"
+                              }`}
+                            >
+                              {selectedCandidate.consecutiveClassesCount <= 1
+                                ? "No Consecutive Classes"
+                                : selectedCandidate.consecutiveWarning ||
+                                  `${selectedCandidate.consecutiveClassesCount} Consecutive Classes`}
+                            </span>
                           </>
                         ) : (
                           <span className="text-danger font-bold flex items-center gap-1 text-xs sm:text-sm">
@@ -2266,14 +2341,22 @@ export function SubstitutionManager({
                               (c) => c.teacher.code === newCode,
                             );
                             if (newCand) {
+                              const candidateRaw =
+                                newCand.suggestedSubject ||
+                                newCand.teacher.subject ||
+                                newCand.teacher.dept ||
+                                req.originalSubject ||
+                                req.subject;
+                              const candidateClean = formatSubjectForSection(
+                                cleanPracticalSubject(candidateRaw) ||
+                                  candidateRaw,
+                                req.sectionId,
+                                req.className,
+                                req.sectionName,
+                              );
                               setManualSubjects((prev) => ({
                                 ...prev,
-                                [req.id]:
-                                  newCand.suggestedSubject ||
-                                  newCand.teacher.subject ||
-                                  newCand.teacher.dept ||
-                                  req.originalSubject ||
-                                  req.subject,
+                                [req.id]: candidateClean,
                               }));
                             }
                           }}
@@ -2286,7 +2369,11 @@ export function SubstitutionManager({
                             >
                               {cand.teacher.code} (
                               {cand.teacher.subject || cand.teacher.dept}) •
-                              Load: {cand.currentDayLoad}
+                              Load: {cand.currentDayLoad} •{" "}
+                              {cand.consecutiveClassesCount <= 1
+                                ? "No Consecutive"
+                                : cand.consecutiveWarning ||
+                                  `${cand.consecutiveClassesCount} in a row`}
                             </option>
                           ))}
                         </select>
@@ -2527,7 +2614,11 @@ export function SubstitutionManager({
                                   </div>
                                   <div className="text-xs text-foreground-muted font-semibold">
                                     Load: {item.currentDayLoad} →{" "}
-                                    {item.projectedDayLoad} classes
+                                    {item.projectedDayLoad} classes •{" "}
+                                    {item.consecutiveClassesCount <= 1
+                                      ? "No consecutive"
+                                      : item.consecutiveWarning ||
+                                        `${item.consecutiveClassesCount} consecutive`}
                                   </div>
                                 </div>
                               ) : (
@@ -2793,7 +2884,8 @@ export function SubstitutionManager({
                   </label>
                   {is11Or12BstdClass(manualEditModal.sectionId) && (
                     <div className="mb-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-[11px] font-semibold">
-                      Class 11/12 Business Studies: Physics, Chemistry, Math, and Biology faculty are excluded.
+                      Class 11/12 Business Studies: Physics, Chemistry, Math,
+                      and Biology faculty are excluded.
                     </div>
                   )}
                   <select
